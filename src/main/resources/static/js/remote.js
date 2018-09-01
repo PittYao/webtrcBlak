@@ -122,11 +122,11 @@ function onReceiveMessageCallback(event) {
         }
         receivedSize += event.data.getBytesLength();
         console.log("receivedSize  :" + receivedSize);
+        receivedSize = 0;
     } else {
         // 追加发送过来的谈话内容添加到文办框
         receiveBuffer.push(event.data);
         console.log(event.data);
-        receivedSize = 0;
         receivedSize += event.data.byteLength;
         console.log("receivedFileSize  :" + receivedSize);
     }
@@ -138,18 +138,19 @@ function onReceiveMessageCallback(event) {
     console.log(event.data.byteLength);
     if ( event.data.byteLength) {
         const received = new Blob(receiveBuffer);
-        receiveBuffer = [];
+        // receiveBuffer = [];
         // 下载链接
         downloadAnchor.href = URL.createObjectURL(received);
         downloadAnchor.download = fileName;
         downloadAnchor.textContent =
-            `download file  '${fileName}' (${event.data.byteLength} bytes)`;
+            `download file  '${fileName}' (${receivedSize} bytes)`;
         downloadAnchor.style.display = 'block';
         // 下载速度
         const bitrate = Math.round(receivedSize * 8 /
             ((new Date()).getTime() - timestampStart));
         bitrateDiv.innerHTML
             = `<strong>Average Bitrate:</strong> ${bitrate} kbits/sec (max: ${bitrateMax} kbits/sec)`;
+
         if (statsInterval) {
             clearInterval(statsInterval);
             statsInterval = null;
@@ -382,13 +383,17 @@ function sendDataFile() {
         return;
     }
     sendProgress.max = file.size;
-    receiveProgress.max = file.size;
-    const chunkSize = 16384;
+    // receiveProgress.max = file.size;
+    const chunkSize = 2000;// 规定每次发送的最大字节是16384
     const reader = new FileReader();
     let offset = 0;
+    let flag = true; // 标识只发送一次文件名
     reader.addEventListener('load', e => {
-        // 发送文件名
-        sendChannel.send("fileName:"+file.name);
+        // 只发送一次文件名
+        if (flag){
+            sendChannel.send("fileName:"+file.name);
+            flag = false;
+        }
         // 发送文件流
         console.log('FileRead.onload ', e);
         sendChannel.send(e.target.result);
