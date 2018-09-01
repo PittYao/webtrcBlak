@@ -1,0 +1,24 @@
+1. webRTC 浏览器点对点 传输数据
+2. 主要对象：
+   - 获取音视频 navigator.mediaDevices
+   - 音频标签 video
+   - WebSocket
+      - onOpen      打开Socket
+      - onMessage   接收到数据
+      - DataChannel 数据通道
+   - SDP: 描述本机音视频的参数，等配置信息
+   - ICE: 从STUN服务器查询的本机外网的ip等信息
+3. 操作步骤：
+  3.1 local端 获取本机音频流到 localS他ream
+  3.2 Socket.onOpen时创建RTCPeerConnection对象
+  3.3 localPeer创建sendDataChannel通道
+  3.4 添加流到LocalPeer:localConnection.addTrack(track, localStream)
+  3.5 创建offer并将SDP设置为本机SDP，再发送给服务器
+  3.6 此时会自动把 Local的ICE约束发送到服务器
+  3.7 服务器转发LocalSDP和LocalICE
+  3.8 远端peer onMessage 接收到LocalSDP后设置为RemotePeer的远端SDP
+  3.9 再 远端peer 发送Answer（远端的SDP），此时会自动发送远端的ICE给服务器
+  3.10 服务器转发给Local的SDP和ICE
+  3.11 Local接收到SDP 设置为远端SDP ，接收到ICE 添加ICE
+  3.12 通道打开
+  3.13 两端把 audio的Stream设置为video的src即可听到声音
