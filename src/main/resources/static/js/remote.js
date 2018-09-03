@@ -211,9 +211,14 @@ function disableSendButton() {
     sendButton.disabled = true;
 }
 
+
+
+
 function createConnection() {
 
-    window.ws = new WebSocket("wss://" + location.host + "/MyWebsocket");
+    // TODO  用户信息测试start
+    // 发送socket
+    window.ws = new WebSocket("wss://" + location.host + "/MyWebsocket/remote");
     // + localStream
     const audioTracks = localStream.getAudioTracks();
     if (audioTracks.length > 0) {

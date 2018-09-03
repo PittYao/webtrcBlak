@@ -96,6 +96,8 @@ navigator.mediaDevices
     })
     .then(gotStream)
     .catch(e => alert(`getUserMedia() error: ${e.name}`));
+
+
 /**
  * 创建连接
  */
@@ -106,8 +108,10 @@ function createConnection() {
     if (audioTracks.length > 0) {
         console.log(`Using audio device: ${audioTracks[0].label}`);
     }
+    // TODO  用户信息测试start
     // 发送socket
-    window.ws = new WebSocket("wss://" + location.host + "/MyWebsocket");
+    window.ws = new WebSocket("wss://" + location.host + "/MyWebsocket/local");
+
     //　socket接收消息
     ws.onmessage = function (e) {
         var temp = e.data.replace("setRemoteDescription2:", "");
@@ -163,7 +167,6 @@ function createConnection() {
             gotDescription1,
             onCreateSessionDescriptionError
         );
-
 
         // 先获取了远端流
         localConnection.ontrack = gotRemoteStream;
