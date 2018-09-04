@@ -1,5 +1,7 @@
 package com.websocket.webtrc.domain;
 
+import com.alibaba.fastjson.annotation.JSONField;
+
 import java.util.Objects;
 import java.util.UUID;
 
@@ -12,36 +14,23 @@ import java.util.UUID;
  */
 public class User {
 
-    private String id;
 
     private String name;
-
+    @JSONField(serialize = false)
     private String ip;
 
     public User() {}
 
-    /**
-     * Constructs
-     * @param ip
-     */
-    public User( String ip) {
-        this.id   = UUID.randomUUID().toString();
-        this.name = ip;
-    }
+    public User( String name) {
+        this.name = name;
 
+    }
     @Override
     public String toString() {
-        return "User{" + "id='" + id + '\'' + ", name='" + name + '\'' + '}';
-    }
-
-
-    public String getId() {
-        return id;
-    }
-
-
-    public void setId(String id) {
-        this.id = id;
+        return "User{" +
+                "name='" + name + '\'' +
+                ", ip='" + ip + '\'' +
+                '}';
     }
 
 
@@ -53,18 +42,28 @@ public class User {
         this.name = name;
     }
 
+    public String getIp() {
+        return ip;
+    }
+
+    public void setIp(String ip) {
+        this.ip = ip;
+    }
+
+    /**
+     *  TODO 暂时根据name来判断在线用户列表是否重复
+     * */
     @Override
     public boolean equals(Object o) {
         if (this == o) {return true;}
         if (o == null || getClass() != o.getClass()) {return false;}
         User user = (User) o;
-        return Objects.equals(id, user.id) &&
-                Objects.equals(name, user.name);
+        return Objects.equals(name, user.name);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name);
+        return Objects.hash( name);
     }
 }
 
