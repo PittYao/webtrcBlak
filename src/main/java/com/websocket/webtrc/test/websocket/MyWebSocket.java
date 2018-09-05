@@ -1,8 +1,6 @@
 package com.websocket.webtrc.test.websocket;
 
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.annotation.JSONField;
-import com.fasterxml.jackson.annotation.JsonAlias;
 import com.websocket.webtrc.domain.Room;
 import com.websocket.webtrc.domain.User;
 import org.springframework.stereotype.Component;
@@ -13,11 +11,14 @@ import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
  * 测试socket后端连接
+ *
+ * @author pitt
+ * @date 2018/09/5
  */
 @ServerEndpoint(value = "/MyWebsocket/{userName}")
 @Component
@@ -45,7 +46,7 @@ public class MyWebSocket implements Serializable {
     /**
      * 房间集合
      */
-    private List<Room> rooms = new ArrayList<>();
+    private static  List<Room> rooms = new ArrayList<>();
 
     /**
      * 当前发消息的人员编号
@@ -56,6 +57,26 @@ public class MyWebSocket implements Serializable {
      * 当前服务器在线用户
      */
     private static CopyOnWriteArrayList<User> liveUsers = new CopyOnWriteArrayList<>();
+
+    /**
+     * 远端选择在线列表中要和谁连线的userName
+     */
+    private static final String DESC_NAME = "descName:";
+
+    /**
+     * local端给remote端发送sdp和ice时指定的remote用户名
+     */
+    private static final String REMOTE_USER = "remoteUser:";
+
+    /**
+     * remote端给local端发送sdp和ice时指定的local端用户名
+     */
+    private static final String LOCAL_USER = "descUser:";
+
+    /**
+     * 当local端获取远端音频成功时，会发送连接成功的头信息
+     */
+    private static final String CONNECTION_SUCCESS = "connectionSuccess|";
 
 
     static {
@@ -68,7 +89,6 @@ public class MyWebSocket implements Serializable {
      */
     @OnOpen
     public void onOpen(@PathParam(value = "userName") String userName, Session session) {
-        System.out.println(userName);
         //接收到发送消息的人员编号
         this.currentUser = userName;
 
@@ -90,11 +110,98 @@ public class MyWebSocket implements Serializable {
             System.out.println(item.getCurrentUser());
         }
         try {
-            // 在有人访问服务器时就把在线用户列表(除了自己)发送给所有在线用户
-
+            // 在有人访问服务器时就把在线用户列表发送给所有在线用户
             this.sendInfo2All(JSON.toJSONString(liveUsers));
         } catch (IOException e) {
             System.out.println("Json转换异常:" + e.getMessage());
+        }
+    }
+
+
+    /**
+     * 收到客户端消息后调用的方法
+     * 聊天室逻辑：
+     * 1. 传输参数目的地ip，就创建房间
+     * 1.1 创建房间
+     * 1.2 用户添加进房间
+     * 1.3 给目的地ip发送请求
+     * 1.4 等待目的地ip发送sdp ice过来
+     * 1.5 把目的地用户添加进房间
+     * 2. 传输参数房间id，就加入房间
+     *
+     * @param message 客户端发送过来的消息
+     * @param session 可选的参数
+     */
+    @OnMessage
+    public void onMessage(String message, Session session) {
+        // 发起电话邀请 remote->local
+        String descUser = "";
+        if (message.startsWith(DESC_NAME)) {
+            descUser = message.substring(message.indexOf(":") + 1);
+            // 通知对应的用户有人找你
+            try {
+                sendMessageTo("call:" + currentUser, descUser);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+        }
+        // 响应电话邀请 local->remote 的sdp和ice
+        String answerUser = "";
+        if (message.startsWith(REMOTE_USER)) {
+            answerUser = message.substring(message.indexOf(":") + 1, message.indexOf(";"));
+            System.out.println("answerUser:" + answerUser);
+            // 取掉remoteUser头
+            message = message.substring(message.indexOf(";") + 1);
+            System.out.println("msg:" + message);
+            // 给指定的远端用户发送sdp和ice
+            try {
+                sendMessageTo(message, answerUser);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        // remote->local 的sdp和ice
+        if (message.startsWith(LOCAL_USER)) {
+            descUser = message.substring(message.indexOf(":") + 1, message.indexOf(";"));
+            System.out.println("descUser:" + descUser);
+            // 取掉remoteUser头
+            message = message.substring(message.indexOf(";") + 1);
+            System.out.println("msg:" + message);
+            // 把远端的sdp和ice发送给本地
+            try {
+                sendMessageTo(message, descUser);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        // 连接成功后创建房间等后续操作
+        if (message.startsWith(CONNECTION_SUCCESS)) {
+            // 获取localUser
+            String localUser = this.currentUser;
+            // 获取remoteUser
+            String remoteUser = message.substring(message.indexOf(":") + 1);
+            // 创建房间
+            Room room = new Room();
+            // 将用户分配到房间中
+            List<User> users = room.getUsers();
+            User localUsers = new User(localUser);
+            User remoteUsers = new User(remoteUser);
+
+            users.add(localUsers);
+            users.add(remoteUsers);
+            // 将该房间加入房间列表中
+            rooms.add(room);
+            // 分发给所有用户当前房间列表的状况
+            try {
+                sendInfo2All("liveRooms:"+JSON.toJSONString(rooms));
+                System.out.println("rooms:"+JSON.toJSONString(rooms));
+                // 连接成功后通知给相应的已连接的用户
+                sendMessageTo(CONNECTION_SUCCESS+remoteUser,localUser);
+                sendMessageTo(CONNECTION_SUCCESS+localUser,remoteUser);
+            } catch (IOException e) {
+                System.out.println("房间列表Json转换失败:" + e.getMessage());
+            }
         }
     }
 
@@ -117,73 +224,13 @@ public class MyWebSocket implements Serializable {
         try {
             this.sendInfo2All(JSON.toJSONString(liveUsers));
         } catch (IOException e) {
-            System.out.println("Json转换异常:" + e.getMessage());
-        }
-    }
-
-    /**
-     * 收到客户端消息后调用的方法
-     * 聊天室逻辑：
-     * 1. 传输参数目的地ip，就创建房间
-     * 1.1 创建房间
-     * 1.2 用户添加进房间
-     * 1.3 给目的地ip发送请求
-     * 1.4 等待目的地ip发送sdp ice过来
-     * 1.5 把目的地用户添加进房间
-     * 2. 传输参数房间id，就加入房间
-     *
-     * @param message 客户端发送过来的消息
-     * @param session 可选的参数
-     */
-    @OnMessage
-    public void onMessage(String message, Session session) {
-//        System.out.println("来自客户端的消息:" + message);
-        // 发起电话邀请 remote->local
-        String descUser = "";
-        if (message.startsWith("descName:")) {
-            descUser = message.substring(message.indexOf(":") + 1);
-            // 通知对应的用户有人找你
-            try {
-                sendMessageTo("call:" + currentUser, descUser);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-        }
-        // 响应电话邀请 local->remote 的sdp和ice
-        String answerUser = "";
-        if (message.startsWith("remoteUser:")) {
-            answerUser = message.substring(message.indexOf(":") + 1, message.indexOf(";"));
-            System.out.println("answerUser:" + answerUser);
-            // 取掉remoteUser头
-            message = message.substring(message.indexOf(";") + 1);
-            System.out.println("msg:" + message);
-            // 给指定的远端用户发送sdp和ice
-            try {
-                sendMessageTo(message, answerUser);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        // remote->local 的sdp和ice
-        if (message.startsWith("descUser:")) {
-            descUser = message.substring(message.indexOf(":") + 1, message.indexOf(";"));
-            System.out.println("descUser:" + descUser);
-            // 取掉remoteUser头
-            message = message.substring(message.indexOf(";") + 1);
-            System.out.println("msg:" + message);
-            // 把远端的sdp和ice发送给本地
-            try {
-                sendMessageTo(message, descUser);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            System.out.println("onClose中更新在线人数Json转换异常:" + e.getMessage());
         }
     }
 
     @OnError
     public void onError(Session session, Throwable error) {
-        System.out.println("发生错误");
+        System.out.println("socket发生错误");
         error.printStackTrace();
     }
 
@@ -280,10 +327,6 @@ public class MyWebSocket implements Serializable {
 
     public List<Room> getRooms() {
         return rooms;
-    }
-
-    public void setRooms(List<Room> rooms) {
-        this.rooms = rooms;
     }
 
     public String getCurrentUser() {

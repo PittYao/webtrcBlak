@@ -17,8 +17,10 @@ const receiveProgress = document.querySelector('progress#receiveProgress');
 const statusMessage = document.querySelector('span#status');
 
 const liveUsers = document.querySelector('div#liveUsers');
-let descName;
-let userName = 'remote';
+const liveRooms = document.querySelector('div#liveRooms');
+
+let descName; // 目的地用户名
+let userName = 'remote'; // 本机用户名
 
 let receiveBuffer = [];
 let receivedSize = 0;
@@ -53,6 +55,13 @@ localVideo.addEventListener('loadedmetadata', function () {
 
 // 选择在线用户连接
 function selectUser2Conn(e) {
+    // 获取连接标签先看是否已经连接过了
+    let connSpan = e.target.lastElementChild;
+    if (connSpan != null &&connSpan.nodeType == 1){
+        // 已连接
+        alert("已经和他连接了");
+        return;
+    }
     descName = e.target.innerHTML;
     ws.send("descName:" + descName);
     // 发送请求连接
@@ -68,8 +77,9 @@ function gotStream(stream) {
     window.ws = new WebSocket("wss://" + location.host + "/MyWebsocket/" + userName);
     // 接收数据
     ws.onmessage = function (e) {
+        let data = e.data;
         try {
-            var json = JSON.parse(e.data);
+            let json = JSON.parse(data);
             // console.log(json);
             // 检测是否发送的用户在线列表
             if (json[0].name == 'head') {
@@ -83,25 +93,17 @@ function gotStream(stream) {
                     let p = document.createElement("p");
                     p.innerHTML = json[i].name;
                     liveUsers.appendChild(p);
-                    p.addEventListener('dblclick', selectUser2Conn, false);
-                    // 加些选中效果
-                    p.addEventListener('mouseenter',function () {
-                        p.className = 'light';
-                    },false);
-                    p.addEventListener('mouseleave',function () {
-                        p.className = 'dark';
-                    },false);
+                    selectNode(p);
                 }
             }
         } catch (e) {
             console.log("在传输sdp或ice")
         }
 
-
         //当服务器发来local端的sdp时，进行操作
-        var temp = e.data.replace("setRemoteDescription1:", "")
-        if (temp != e.data) {
-            console.log(new Date().toString() + "接收到local端的sdp  :  " + e.data);
+        var temp = data.replace("setRemoteDescription1:", "")
+        if (temp != data) {
+            console.log(new Date().toString() + "接收到local端的sdp  :  " + data);
             remoteConnection.setRemoteDescription(JSON.parse(temp));
             remoteConnection.createAnswer().then(
                 gotDescription2,
@@ -109,9 +111,9 @@ function gotStream(stream) {
             );
         }
 
-        temp = e.data.replace("addIceCandidate1:", "")
-        if (temp != e.data) {
-            console.log(new Date().toString() + "  接收到local端的ice  :  " + e.data);
+        temp =data.replace("addIceCandidate1:", "")
+        if (temp != data) {
+            console.log(new Date().toString() + "  接收到local端的ice  :  " + data);
             var candidate = JSON.parse(temp)
 
             remoteConnection.addIceCandidate(candidate)
@@ -121,22 +123,67 @@ function gotStream(stream) {
                 );
             // console.log(`${getName(remoteConnection)} ICE candidate: ${event.candidate ? event.candidate.candidate : '(null)'}`);
         }
-    };
 
+        if (data.startsWith("liveRooms:")) {
+            // 清空之前的内容
+            liveRooms.innerHTML = "";
+            // 去掉liveRooms头
+            let roomData = data.substring(e.data.indexOf(":") + 1);
+            let liveRoom = JSON.parse(roomData);
+            // console.log(liveRoom);
+            // 显示房间和用户
+            for (let i = 0; i < liveRoom.length; i++) {
+                // 房间
+                let roomName = liveRoom[i].name;
+                let roomId = liveRoom[i].id;
+
+                let roomNode = document.createElement("p");
+                roomNode.innerHTML = roomName;
+                let roomIdNode = document.createElement("p");
+                roomIdNode.innerHTML = roomId;
+                // 隐藏id
+                roomIdNode.setAttribute("hidden",true);
+
+                selectNode(roomNode);
+                liveRooms.appendChild(roomIdNode);
+                liveRooms.appendChild(roomNode);
+            }
+        }
+
+        // 接收已连接成功并修改在线用户状态
+        if (data.startsWith("connectionSuccess|")){
+            let connectUser = data.substring(data.indexOf("|")+1);
+            // 遍历在线用户列表
+            let childNodes = liveUsers.childNodes;
+            for (let i = 0; i < childNodes.length; i++) {
+                let item = childNodes[i];
+                console.log("nodeText:"+item.textContent);
+                if (item.textContent = connectUser){
+                    // 找到已连接的用户
+                    let joined = document.createElement("span")
+                    joined.innerHTML = '已连接';
+                    joined.className = "right";
+
+                    item.appendChild(joined);
+                }
+            }
+
+        }
+    };
 }
 
 navigator.mediaDevices
     .getUserMedia({
-        audio: true,
+        audio: true
     })
     .then(gotStream)
     .catch(e => alert(`getUserMedia() error: ${e.name}`));
 // + localVideo end
 
-
 remoteVideo.addEventListener('loadedmetadata', function () {
     console.log(`Remote video videoWidth: ${this.videoWidth}px,  videoHeight: ${this.videoHeight}px`);
 });
+
 remoteVideo.onresize = () => {
     console.log(`Remote video size changed to ${remoteVideo.videoWidth}x${remoteVideo.videoHeight}`);
     // We'll use the first onsize callback as an indication that video has started
@@ -163,7 +210,6 @@ async function handleFileInputChange() {
     }
 }
 
-
 //字符编码数值对应的存储长度：
 String.prototype.getBytesLength = function () {
     var totalLength = 0;
@@ -182,8 +228,9 @@ String.prototype.getBytesLength = function () {
     }
     return totalLength;
 }
+
 // 接收消息和文件
-var fileName = '';
+let fileName = '';
 
 function onReceiveMessageCallback(event) {
     console.log(`Received Message ${event.data}`);
@@ -272,7 +319,6 @@ async function displayStats() {
     }
 }
 
-
 function gotRemoteStream(e) {
     if (remoteVideo.srcObject !== e.streams[0]) {
         remoteVideo.srcObject = e.streams[0];
@@ -283,7 +329,6 @@ function gotRemoteStream(e) {
 function disableSendButton() {
     sendButton.disabled = true;
 }
-
 
 function createConnection() {
     // + localStream

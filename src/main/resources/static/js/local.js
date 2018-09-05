@@ -18,11 +18,13 @@ const sendProgress = document.querySelector('progress#sendProgress');
 const receiveProgress = document.querySelector('progress#receiveProgress');
 const statusMessage = document.querySelector('span#status');
 
-const liveUsers = document.querySelector('div#liveUsers');
-let remoteUser;
-let userName = 'local';
+const liveUsers = document.querySelector('div#liveUsers');// 在线用户
+const liveRooms = document.querySelector('div#liveRooms');// 在线房间
 
-let receiveBuffer = [];// 接收数据
+let remoteUser;
+let localUser = 'local';
+
+let receiveBuffer = [];// 接收数据容器
 let receivedSize = 0;// 接收数据大小
 
 let sendBuffer = [];
@@ -33,7 +35,6 @@ let timestampPrev = 0;
 let timestampStart;
 let statsInterval = null;
 let bitrateMax = 0;
-
 
 fileInput.addEventListener('change', handleFileInputChange, false);
 
@@ -63,11 +64,11 @@ closeButton.onclick = closeDataChannels;
 
 fileInput.disabled = true;
 
-
 // + remoteVideo start
 remoteVideo.addEventListener('loadedmetadata', function () {
     console.log(`Remote video videoWidth: ${this.videoWidth}px,  videoHeight: ${this.videoHeight}px`);
 });
+
 remoteVideo.onresize = () => {
     console.log(`Remote video size changed to ${remoteVideo.videoWidth}x${remoteVideo.videoHeight}`);
     if (startTime) {
@@ -87,10 +88,9 @@ function disableSendButton() {
     sendButton.disabled = true;
 }
 
-// 选择在线用户连接
+// 选择在线用户连接，暂时不能从local端选择用户发起请求
 function selectUser2Conn(e) {
-    let userName = e.target.innerHTML;
-    // 发送请求连接
+    let localUser = e.target.innerHTML;
 }
 
 // 获取本机的音视频流到video标签
@@ -101,12 +101,13 @@ function gotStream(stream) {
 
     // TODO  获取用户在线列表start
     // 发送socket
-    window.ws = new WebSocket("wss://" + location.host + "/MyWebsocket/" + userName);
+    window.ws = new WebSocket("wss://" + location.host + "/MyWebsocket/" + localUser);
 
     //　socket接收消息
     ws.onmessage = function (e) {
+        let data = e.data;
         try {
-            var json = JSON.parse(e.data);
+            let json = JSON.parse(data);
             // console.log(json);
             // 检测是否发送的用户在线列表
             if (json[0].name == 'head') {
@@ -114,45 +115,38 @@ function gotStream(stream) {
                 liveUsers.innerHTML = "";
                 // 添加到页面
                 for (let i = 1; i < json.length; i++) {
-                    if (json[i].name == userName) {
+                    if (json[i].name == localUser) {
                         continue;
                     }
                     let p = document.createElement("p");
                     p.innerHTML = json[i].name;
                     liveUsers.appendChild(p);
-                    p.addEventListener('dblclick', selectUser2Conn, false);
-                    // 加些选中效果
-                    p.addEventListener('mouseenter',function () {
-                        p.className = 'light';
-                    },false);
-                    p.addEventListener('mouseleave',function () {
-                        p.className = 'dark';
-                    },false);
+                    selectNode(p);
                 }
             }
         } catch (e) {
             console.log("在传输sdp或ice");
         }
         // 收到有人找我的消息,就发送sdp和ice
-        if (e.data.startsWith('call:')) {
+        if (data.startsWith('call:')) {
             // 获取谁找我
-            remoteUser = e.data.substring(e.data.indexOf(":") + 1);
+            remoteUser = data.substring(data.indexOf(":") + 1);
             console.log(remoteUser);
             // 把sdp和ice发给指定的人
             // ws.send("answerName:"+srcUser);
             createConnection();
         }
 
-        var temp = e.data.replace("setRemoteDescription2:", "");
+        var temp = data.replace("setRemoteDescription2:", "");
         // 查看获取的远端sdp
-        if (temp != e.data) {
-            console.log(new Date().toString() + " 接收到remote端的sdp  :  " + e.data);
+        if (temp != data) {
+            console.log(new Date().toString() + " 接收到remote端的sdp  :  " +data);
             localConnection.setRemoteDescription(JSON.parse(temp));
         }
 
         temp = e.data.replace("addIceCandidate2:", "")
-        if (temp != e.data) {
-            console.log(new Date().toString() + " 接收到remote端的ice  :  " + e.data);
+        if (temp != data) {
+            console.log(new Date().toString() + " 接收到remote端的ice  :  " + data);
             var candidate = JSON.parse(temp)
 
             localConnection.addIceCandidate(candidate)
@@ -161,19 +155,64 @@ function gotStream(stream) {
                     err => onAddIceCandidateError(null, err)
                 );
         }
+        // 接收在线房间并显示
+        if (data.startsWith("liveRooms:")) {
+            // 清空之前的内容
+            liveRooms.innerHTML = "";
+            // 去掉liveRooms头
+            let roomdata = data.substring(data.indexOf(":") + 1);
+            let liveRoom = JSON.parse(roomdata);
+            // console.log(liveRoom);
+            // 显示房间和用户
+            for (let i = 0; i < liveRoom.length; i++) {
+                // 房间
+                let roomName = liveRoom[i].name;
+                let roomId = liveRoom[i].id;
+
+                let roomNode = document.createElement("p");
+                roomNode.innerHTML = roomName;
+                let roomIdNode = document.createElement("p");
+                roomIdNode.innerHTML = roomId;
+                // 隐藏id
+                roomIdNode.setAttribute("hidden",true);
+
+                // 标识用户已经在的房间
+                // 在用户不在的房间中 有加入房间的按钮(只能加入一个房间)
+                selectNode(roomNode);
+                liveRooms.appendChild(roomIdNode);
+                liveRooms.appendChild(roomNode);
+            }
+        }
+
+        // 接收已连接成功并修改在线用户状态
+        if (data.startsWith("connectionSuccess|")){
+            let connectUser = data.substring(data.indexOf("|")+1);
+            // 遍历在线用户列表
+            let childNodes = liveUsers.childNodes;
+            for (let i = 0; i < childNodes.length; i++) {
+                let item = childNodes[i];
+                console.log("nodeText:"+item.textContent);
+                if (item.textContent = connectUser){
+                    // 找到已连接的用户
+                    let joined = document.createElement("span")
+                    joined.innerHTML = '已连接';
+                    joined.className = "right";
+
+                    item.appendChild(joined);
+                }
+            }
+
+        }
     };
-
-
 }
 
 console.log('Requesting local streaxm');
 navigator.mediaDevices
     .getUserMedia({
-        audio: true,
+        audio: true
     })
     .then(gotStream)
     .catch(e => alert(`getUserMedia() error: ${e.name}`));
-
 
 /**
  * 创建连接
@@ -271,7 +310,7 @@ String.prototype.getBytesLength = function () {
     }
     return totalLength;
 }
-var fileName = '';
+let fileName = '';
 
 function onReceiveMessageCallback(event) {
     console.log(`Received Message ${event.data}`);
@@ -365,6 +404,8 @@ function gotRemoteStream(e) {
     if (remoteVideo.srcObject !== e.streams[0]) {
         remoteVideo.srcObject = e.streams[0];
         console.log('pc2 received remote stream');
+        // 告诉服务端：我们连接成功了
+        ws.send("connectionSuccess|remoteUser:" + remoteUser);
     }
 }
 
