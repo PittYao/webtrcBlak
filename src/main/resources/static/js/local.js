@@ -21,8 +21,12 @@ const statusMessage = document.querySelector('span#status');
 const liveUsers = document.querySelector('div#liveUsers');// 在线用户
 const liveRooms = document.querySelector('div#liveRooms');// 在线房间
 
+const userNameP = document.querySelector('p#userName');
+
 let remoteUser;
-let localUser = 'local';
+// let localUser = 'local';
+let localUser =  userNameP.innerHTML; // 本机用户名
+
 
 let receiveBuffer = [];// 接收数据容器
 let receivedSize = 0;// 接收数据大小
@@ -108,8 +112,7 @@ function gotStream(stream) {
         let data = e.data;
         try {
             let json = JSON.parse(data);
-            // console.log(json);
-            // 检测是否发送的用户在线列表
+            // 取下用户在线列表的头
             if (json[0].name == 'head') {
                 // 清空之前的内容
                 liveUsers.innerHTML = "";
@@ -127,13 +130,12 @@ function gotStream(stream) {
         } catch (e) {
             console.log("在传输sdp或ice");
         }
-        // 收到有人找我的消息,就发送sdp和ice
+        // 收到有人找我连接的消息,就发送sdp和ice
         if (data.startsWith('call:')) {
-            // 获取谁找我
+            // 获取谁找我,没有用变量，自动提升为全局变量,
             remoteUser = data.substring(data.indexOf(":") + 1);
             console.log(remoteUser);
-            // 把sdp和ice发给指定的人
-            // ws.send("answerName:"+srcUser);
+            // 创建连接: 把sdp和ice发给指定的人
             createConnection();
         }
 
@@ -173,9 +175,11 @@ function gotStream(stream) {
                 let roomNode = document.createElement("p");
                 roomNode.innerHTML = roomName;
                 let roomIdNode = document.createElement("p");
+                roomIdNode.className = 'roomId';
                 roomIdNode.innerHTML = roomId;
                 // 隐藏id
                 roomIdNode.setAttribute("hidden", true);
+
                 // 显示用户
                 let roomUsers = liveRoom[i].users;
                 for (let j = 0; j < roomUsers.length; j++) {
@@ -200,6 +204,7 @@ function gotStream(stream) {
             for (let i = 0; i < childNodes.length; i++) {
                 let item = childNodes[i];
                 console.log("nodeText:" + item.textContent);
+                console.log("connectUser-->"+connectUser);
                 if (item.textContent = connectUser) {
                     // 找到已连接的用户
                     let joined = document.createElement("span")
@@ -207,6 +212,7 @@ function gotStream(stream) {
                     joined.className = "right";
 
                     item.appendChild(joined);
+                    break;
                 }
             }
 
@@ -412,7 +418,7 @@ function gotRemoteStream(e) {
     if (remoteVideo.srcObject !== e.streams[0]) {
         remoteVideo.srcObject = e.streams[0];
         console.log('pc2 received remote stream');
-        // 告诉服务端：我们连接成功了
+        // TODO 暂时认为获取流成功到了就认为连接成功.告诉服务端:我们(通信的两个用户名)连接成功了
         ws.send("connectionSuccess|remoteUser:" + remoteUser);
     }
 }
@@ -496,6 +502,13 @@ function closeDataChannels() {
     localConnection = null;
     console.log('Closed peer connections');
 
+    // 在关闭socket时，通知服务端是谁关闭了,和他所在的房间号
+    const roomP = document.querySelector('p.roomId');
+    // 暂时只让加入一个房间
+    let roomId = roomP.innerHTML;
+    // 发送房间号
+    ws.send("roomId:"+roomId);
+
     ws.close();
     console.log('webSocket close');
 
@@ -508,7 +521,9 @@ function closeDataChannels() {
     disableSendButton();
     enableStartButton();
 }
-
+/**
+ * 发送响应头 remoteUser ，并把sdp给指定的用户
+ * */
 function gotDescription1(desc) {
     console.log("设置本地sdp : " + desc);
     localConnection.setLocalDescription(desc);

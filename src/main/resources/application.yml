@@ -9,7 +9,7 @@ spring:
     check-template-location: true
     suffix: .html
     encoding: utf-8
-    mode: HTML5
+    mode: HTML
     servlet:
       content-type: text/html
 

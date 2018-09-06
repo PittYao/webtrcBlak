@@ -1,30 +1,32 @@
 <!DOCTYPE html>
-<!--
-*   测试remote端
-*   注意:现在已经用 url+template的方式模拟多个remote端
--->
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <title>
+        <!DOCTYPE html>
+        <!--
+        *  测试local端: local端还不能选择在线用户进行连接
+        -->
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="description" content="WebRTC code samples">
+            <meta name="viewport" content="width=device-width, user-scalable=yes, initial-scale=1, maximum-scale=1">
+            <meta itemprop="description" content="Client-side WebRTC code samples">
+            <meta itemprop="image" content="../../../images/webrtc-icon-192x192.png">
+            <meta itemprop="name" content="WebRTC code samples">
+            <meta name="mobile-web-app-capable" content="yes">
+            <meta id="theme-color" name="theme-color" content="#ffffff">
 
-    <meta charset="utf-8">
-    <meta name="description" content="WebRTC code samples">
-    <meta name="viewport" content="width=device-width, user-scalable=yes, initial-scale=1, maximum-scale=1">
-    <meta itemprop="description" content="Client-side WebRTC code samples">
-    <meta itemprop="image" content="../../../images/webrtc-icon-192x192.png">
-    <meta itemprop="name" content="WebRTC code samples">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta id="theme-color" name="theme-color" content="#ffffff">
+            <base target="_blank">
 
-    <base target="_blank">
+            <title>Transmit text</title>
 
-    <title>Transmit text</title>
-
-    <link rel="icon" sizes="192x192" href="../../../images/webrtc-icon-192x192.png">
-    <link href="//fonts.googleapis.com/css?family=Roboto:300,400,500,700" rel="stylesheet" type="text/css">
-    <link rel="stylesheet" href="css/main.css"/>
-    <link rel="stylesheet" href="css/customCSS.css"/>
-
-</head>
+            <link rel="icon" sizes="192x192" href="../image/webrtc-icon-192x192.png">
+            <link href="//fonts.googleapis.com/css?family=Roboto:300,400,500,700" rel="stylesheet" type="text/css">
+            <link rel="stylesheet" href="../css/main.css"/>
+            <link rel="stylesheet" href="../css/customCSS.css"/>
+        </head>
 
 <body>
 
@@ -33,11 +35,14 @@
     <h1><a href="//webrtc.github.io/samples/" title="WebRTC samples homepage">WebRTC samples</a>
         <span>Transmit text</span></h1>
 
+    <p id="userName" hidden="hidden">[[${username}]]</p>
+
     <div id="buttons">
         <button id="startButton">Start</button>
         <button id="sendButton" disabled>Send</button>
         <button id="closeButton" disabled>Stop</button>
     </div>
+
     <section>
         <form id="fileInfo">
             <input type="file" id="fileInput" name="files"/>
@@ -58,14 +63,16 @@
         <span id="status"></span>
 
     </section>
-    <!-- +  localVideo-->
-    <p> 本机音频：
+    <!-- muted 默认将声音关闭-->
+    <p> 本机音频 ：
         <audio id="localVideo" playsinline autoplay muted controls></audio>
     </p>
-    <!-- muted 默认将声音关闭-->
+
+    <!-- + remoteVideo -->
     <p> 远端音频 ：
         <audio id="remoteVideo" playsinline autoplay muted controls></audio>
     </p>
+
     <div id="sendReceive">
         <div id="send">
             <h2>Send</h2>
@@ -90,12 +97,17 @@
     <a href="https://github.com/webrtc/samples/tree/gh-pages/src/content/datachannel/basic"
        title="View source for this page on GitHub" id="viewSource">View source on GitHub</a>
 </div>
-<!-- 最好把js下载到本地-->
-<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
 
+<script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
 <script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
-<script src="js/ga.js"></script>
-<script src="js/main.js"></script>
-<script src="js/remote.js"></script>
+<script src="../js/ga.js"></script>
+<script src="../js/main.js"></script>
+<script src="../js/local.js"></script>
+</body>
+</html>
+</title>
+</head>
+<body>
+
 </body>
 </html>

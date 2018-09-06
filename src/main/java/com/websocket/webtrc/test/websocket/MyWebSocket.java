@@ -10,6 +10,7 @@ import javax.websocket.server.PathParam;
 import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
 import java.io.Serializable;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -49,7 +50,7 @@ public class MyWebSocket implements Serializable {
     private static List<Room> rooms = new ArrayList<>();
 
     /**
-     * 当前发消息的人员编号
+     * 当前发消息的用户名称
      */
     private String currentUser;
 
@@ -57,6 +58,10 @@ public class MyWebSocket implements Serializable {
      * 当前服务器在线用户
      */
     private static CopyOnWriteArrayList<User> liveUsers = new CopyOnWriteArrayList<>();
+
+    /**
+     *  包头前缀：
+     */
 
     /**
      * 远端选择在线列表中要和谁连线的userName
@@ -78,7 +83,14 @@ public class MyWebSocket implements Serializable {
      */
     private static final String CONNECTION_SUCCESS = "connectionSuccess|";
 
+    /**
+     * 用户关闭连接时会传房间号的头信息
+     */
+    private static final String ROOM_ID = "roomId:";
 
+    /**
+     *  在 在线用户的头部加入标识
+     */
     static {
         liveUsers.add(new User("head"));
     }
@@ -195,12 +207,31 @@ public class MyWebSocket implements Serializable {
             // 分发给所有用户当前房间列表的状况
             try {
                 sendInfo2All("liveRooms:" + JSON.toJSONString(rooms));
-                System.out.println("rooms:" + JSON.toJSONString(rooms));
                 // 连接成功后通知给相应的已连接的用户
                 sendMessageTo(CONNECTION_SUCCESS + remoteUser, localUser);
                 sendMessageTo(CONNECTION_SUCCESS + localUser, remoteUser);
             } catch (IOException e) {
                 System.out.println("房间列表Json转换失败:" + e.getMessage());
+            }
+        }
+        // 接收关闭连接时发送的房间号
+        if (message.startsWith(ROOM_ID)) {
+            System.out.println(message);
+            // 取头部
+            String roomId = message.substring(message.indexOf(":") + 1);
+            // 从对应的房间号中去除该用户
+            if (rooms.size() > 0) {
+                for (int i = 0; i < rooms.size(); i++) {
+                    Room room = rooms.get(i);
+                    if (room.getId().equals(roomId)) {
+                        List<User> users = room.getUsers();
+                        // TODO 这里指根据name来判断contains,没有考虑ip字段的时候。后续做修改
+                        User user = new User(this.currentUser);
+                        if (users.contains(user)) {
+                            users.remove(user);
+                        }
+                    }
+                }
             }
         }
     }
@@ -211,8 +242,7 @@ public class MyWebSocket implements Serializable {
      */
     @OnClose
     public void onClose() {
-        //从set中删除
-        webSocketSet.remove(this);
+        System.out.println("close");
         //在线数减1
         subOnlineCount();
         System.out.println("有一连接关闭！当前在线人数为" + getOnlineCount());
@@ -221,8 +251,13 @@ public class MyWebSocket implements Serializable {
         user.setName(this.currentUser);
         liveUsers.remove(user);
 
+        //从Socketset中删除
+        webSocketSet.remove(this);
         try {
+            // 更新在线用户列表
             this.sendInfo2All(JSON.toJSONString(liveUsers));
+            // 更新房间用户信息
+            this.sendInfo2All("liveRooms:" + JSON.toJSONString(rooms));
         } catch (IOException e) {
             System.out.println("onClose中更新在线人数Json转换异常:" + e.getMessage());
         }

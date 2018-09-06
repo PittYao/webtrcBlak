@@ -66,11 +66,14 @@ function selectUser2Conn(e) {
         return;
     }
     descName = e.target.innerHTML;
+    // 发送连接请求的头部标识 descName
     ws.send("descName:" + descName);
     // 发送请求连接
     createConnection();
 }
-
+/**
+ * 核心：获取本地音视频流后的一系列操作
+ * */
 function gotStream(stream) {
     console.log('Received local stream');
     localVideo.srcObject = stream;
@@ -84,9 +87,9 @@ function gotStream(stream) {
         try {
             let json = JSON.parse(data);
             // console.log(json);
-            // 检测是否发送的用户在线列表
+            // 取下用户在线列表的头
             if (json[0].name == 'head') {
-                // 清空之前的内容
+                // 显示前 清空之前的内容
                 liveUsers.innerHTML = "";
                 // 添加到页面
                 for (let i = 1; i < json.length; i++) {
@@ -96,6 +99,7 @@ function gotStream(stream) {
                     let p = document.createElement("p");
                     p.innerHTML = json[i].name;
                     liveUsers.appendChild(p);
+                    // 选择用户连接事件并给点选中样式
                     selectNode(p);
                 }
             }
@@ -143,6 +147,7 @@ function gotStream(stream) {
                 let roomNode = document.createElement("p");
                 roomNode.innerHTML = roomName;
                 let roomIdNode = document.createElement("p");
+                roomIdNode.className = 'roomId';
                 roomIdNode.innerHTML = roomId;
                 // 隐藏id
                 roomIdNode.setAttribute("hidden",true);
@@ -176,6 +181,7 @@ function gotStream(stream) {
                     joined.className = "right";
 
                     item.appendChild(joined);
+                    break;
                 }
             }
         }
@@ -430,7 +436,7 @@ function sendData() {
     //设置定时清空send进度条
     window.setTimeout("clearProgessValue(sendProgress)", 3000);
 }
-
+// 关闭连接
 function closeDataChannels() {
     console.log('Closing data channels');
     // sendChannel.close();
@@ -442,6 +448,14 @@ function closeDataChannels() {
     remoteConnection = null;
     console.log('Closed peer connections');
 
+    // 在关闭socket时，通知服务端是谁关闭了,和他所在的房间号
+    const roomP = document.querySelector('p.roomId');
+    // TODO 页面现在只会有一个房间,有多个房间时这里不能这样取值
+    console.log(roomP.className);
+    // 暂时只让加入一个房间
+    let roomId = roomP.innerHTML;
+    // 发送房间号
+    ws.send("roomId:"+roomId);
     ws.close();
     console.log('webSocket close');
 

@@ -18,6 +18,7 @@ public class Room {
     private List<User> users = new ArrayList<>();
 
 
+
     public Room() {
         this.id = UUID.randomUUID().toString();
         this.name = "房间"+this.id.substring(0,3);
