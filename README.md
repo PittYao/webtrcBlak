@@ -12,7 +12,7 @@ local area network demo :
 - send file √
 
 use:
-- local browser open url :self IP/testLocal.html 
+- local browser open url :self IP/local/xxx.html
 - remote browser open url :self IP/remote/xxx.html
 - remote browser select live User dblclick
 - connection success
