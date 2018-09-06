@@ -2,7 +2,9 @@
 Java webRTC local NetWork demo
 
 environmental conditions:
-- JAVA Spring boot
+- JAVA 
+- JDK 1.8 
+- Spring boot
 - IDE:idea
 - https
 
