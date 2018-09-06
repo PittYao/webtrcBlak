@@ -13,7 +13,7 @@ local area network demo :
 
 use:
 - local browser open url :self IP/testLocal.html 
-- remote browser open url :self IP/testRemote.html
-- remote browser click start button
-- local browser click start button
-- end
+- remote browser open url :self IP/remote/xxx.html
+- remote browser select live User dblclick
+- connection success
+
