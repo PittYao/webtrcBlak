@@ -19,8 +19,11 @@ const statusMessage = document.querySelector('span#status');
 const liveUsers = document.querySelector('div#liveUsers');
 const liveRooms = document.querySelector('div#liveRooms');
 
+const userNameP = document.querySelector('p#userName');
+
 let descName; // 目的地用户名
-let userName = 'remote'; // 本机用户名
+// let userName = 'remote'; // 本机用户名
+let userName = userNameP.innerHTML; // 本机用户名
 
 let receiveBuffer = [];
 let receivedSize = 0;
@@ -143,6 +146,14 @@ function gotStream(stream) {
                 roomIdNode.innerHTML = roomId;
                 // 隐藏id
                 roomIdNode.setAttribute("hidden",true);
+                // 显示用户
+                let roomUsers = liveRoom[i].users;
+                for (let j = 0; j <roomUsers.length; j++) {
+                    console.log("187："+roomUsers[j].name);
+                    let roomUserNode = document.createElement("p");
+                    roomUserNode.innerHTML = roomUsers[j].name;
+                    roomNode.appendChild(roomUserNode);
+                }
 
                 selectNode(roomNode);
                 liveRooms.appendChild(roomIdNode);
@@ -167,9 +178,8 @@ function gotStream(stream) {
                     item.appendChild(joined);
                 }
             }
-
         }
-    };
+    }
 }
 
 navigator.mediaDevices

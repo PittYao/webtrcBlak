@@ -7,10 +7,10 @@ import java.util.UUID;
 
 /**
  * Class description
- *  聊天对象
+ * 聊天对象
  *
- * @version        1.0, 18/09/03
- * @author         pitt
+ * @author pitt
+ * @version 1.0, 18/09/03
  */
 public class User {
 
@@ -19,12 +19,14 @@ public class User {
     @JSONField(serialize = false)
     private String ip;
 
-    public User() {}
+    public User() {
+    }
 
-    public User( String name) {
+    public User(String name) {
         this.name = name;
 
     }
+
     @Override
     public String toString() {
         return "User{" +
@@ -51,19 +53,23 @@ public class User {
     }
 
     /**
-     *  TODO 暂时根据name来判断在线用户列表是否重复
-     * */
+     * TODO 暂时根据name来判断在线用户列表是否重复
+     */
     @Override
     public boolean equals(Object o) {
-        if (this == o) {return true;}
-        if (o == null || getClass() != o.getClass()) {return false;}
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         User user = (User) o;
         return Objects.equals(name, user.name);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash( name);
+        return Objects.hash(name);
     }
 }
 

@@ -46,7 +46,7 @@ public class MyWebSocket implements Serializable {
     /**
      * 房间集合
      */
-    private static  List<Room> rooms = new ArrayList<>();
+    private static List<Room> rooms = new ArrayList<>();
 
     /**
      * 当前发消息的人员编号
@@ -194,11 +194,11 @@ public class MyWebSocket implements Serializable {
             rooms.add(room);
             // 分发给所有用户当前房间列表的状况
             try {
-                sendInfo2All("liveRooms:"+JSON.toJSONString(rooms));
-                System.out.println("rooms:"+JSON.toJSONString(rooms));
+                sendInfo2All("liveRooms:" + JSON.toJSONString(rooms));
+                System.out.println("rooms:" + JSON.toJSONString(rooms));
                 // 连接成功后通知给相应的已连接的用户
-                sendMessageTo(CONNECTION_SUCCESS+remoteUser,localUser);
-                sendMessageTo(CONNECTION_SUCCESS+localUser,remoteUser);
+                sendMessageTo(CONNECTION_SUCCESS + remoteUser, localUser);
+                sendMessageTo(CONNECTION_SUCCESS + localUser, remoteUser);
             } catch (IOException e) {
                 System.out.println("房间列表Json转换失败:" + e.getMessage());
             }

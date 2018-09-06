@@ -3,6 +3,16 @@ spring:
     view:
       prefix: /WEB-INF/jsp/
       suffix: .jsp
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    check-template-location: true
+    suffix: .html
+    encoding: utf-8
+    mode: HTML5
+    servlet:
+      content-type: text/html
+
 server:
   ssl:
       key-store:  classpath:keystore.p12

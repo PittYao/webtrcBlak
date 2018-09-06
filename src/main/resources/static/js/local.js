@@ -140,7 +140,7 @@ function gotStream(stream) {
         var temp = data.replace("setRemoteDescription2:", "");
         // 查看获取的远端sdp
         if (temp != data) {
-            console.log(new Date().toString() + " 接收到remote端的sdp  :  " +data);
+            console.log(new Date().toString() + " 接收到remote端的sdp  :  " + data);
             localConnection.setRemoteDescription(JSON.parse(temp));
         }
 
@@ -162,6 +162,7 @@ function gotStream(stream) {
             // 去掉liveRooms头
             let roomdata = data.substring(data.indexOf(":") + 1);
             let liveRoom = JSON.parse(roomdata);
+            console.log("liveRoom" + roomdata);
             // console.log(liveRoom);
             // 显示房间和用户
             for (let i = 0; i < liveRoom.length; i++) {
@@ -174,9 +175,16 @@ function gotStream(stream) {
                 let roomIdNode = document.createElement("p");
                 roomIdNode.innerHTML = roomId;
                 // 隐藏id
-                roomIdNode.setAttribute("hidden",true);
+                roomIdNode.setAttribute("hidden", true);
+                // 显示用户
+                let roomUsers = liveRoom[i].users;
+                for (let j = 0; j < roomUsers.length; j++) {
+                    console.log("187：" + roomUsers[j].name);
+                    let roomUserNode = document.createElement("p");
+                    roomUserNode.innerHTML = roomUsers[j].name;
+                    roomNode.appendChild(roomUserNode);
+                }
 
-                // 标识用户已经在的房间
                 // 在用户不在的房间中 有加入房间的按钮(只能加入一个房间)
                 selectNode(roomNode);
                 liveRooms.appendChild(roomIdNode);
@@ -185,14 +193,14 @@ function gotStream(stream) {
         }
 
         // 接收已连接成功并修改在线用户状态
-        if (data.startsWith("connectionSuccess|")){
-            let connectUser = data.substring(data.indexOf("|")+1);
+        if (data.startsWith("connectionSuccess|")) {
+            let connectUser = data.substring(data.indexOf("|") + 1);
             // 遍历在线用户列表
             let childNodes = liveUsers.childNodes;
             for (let i = 0; i < childNodes.length; i++) {
                 let item = childNodes[i];
-                console.log("nodeText:"+item.textContent);
-                if (item.textContent = connectUser){
+                console.log("nodeText:" + item.textContent);
+                if (item.textContent = connectUser) {
                     // 找到已连接的用户
                     let joined = document.createElement("span")
                     joined.innerHTML = '已连接';
@@ -203,7 +211,7 @@ function gotStream(stream) {
             }
 
         }
-    };
+    }
 }
 
 console.log('Requesting local streaxm');
