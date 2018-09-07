@@ -16,12 +16,16 @@ const sendProgress = document.querySelector('progress#sendProgress');
 const receiveProgress = document.querySelector('progress#receiveProgress');
 const statusMessage = document.querySelector('span#status');
 
+const liveUsers = document.querySelector('div#liveUsers');//用户在线列表
+
+
 let receiveBuffer = [];
 let receivedSize = 0;
 
 let sendBuffer = [];
 let sendSize = 0;
 
+let remoteUser = 'remoteUser';
 
 let bytesPrev = 0;
 let timestampPrev = 0;
@@ -47,10 +51,122 @@ localVideo.addEventListener('loadedmetadata', function () {
     console.log(`Local video videoWidth: ${this.videoWidth}px,  videoHeight: ${this.videoHeight}px`);
 });
 
+function createConnection() {
+
+    window.ws = new WebSocket("wss://" + location.host + "/MyWebsocket/" + remoteUser);
+    // + localStream
+    const audioTracks = localStream.getAudioTracks();
+    if (audioTracks.length > 0) {
+        console.log(`Using audio device: ${audioTracks[0].label}`);
+    }
+
+
+    ws.onopen = function () {
+        dataChannelSend.placeholder = '';
+
+        window.remoteConnection = remoteConnection = new RTCPeerConnection();
+        console.log('Created remote peer connection object remoteConnection');
+        // + sendChannel start
+        sendChannel = remoteConnection.createDataChannel('sendDataChannel');
+        console.log('Created send data channel');
+
+        sendChannel.binaryType = 'arraybuffer';
+        console.log('Created send data channel');
+
+        sendChannel.onopen = onSendChannelStateChange;
+        sendChannel.onclose = onSendChannelStateChange;
+        // + sendChannel end
+
+        // addIce之后才会触发，发送ICE到远端
+        remoteConnection.onicecandidate = e => {
+            console.log("remote ice");
+            onIceCandidate(remoteConnection, e);
+        };
+
+        console.log('Added local stream to remote PC ');
+        // 添加流到peer
+        localStream.getTracks().forEach(track => remoteConnection.addTrack(track, localStream));
+
+        // 先获取了远端流
+        remoteConnection.ontrack = gotRemoteStream;
+        // 再打开了数据通道
+        remoteConnection.ondatachannel = receiveChannelCallback;
+
+        startButton.disabled = true;
+        closeButton.disabled = false;
+        fileInput.disabled = false;
+
+    }
+
+    ws.onmessage = function (e) {
+        let data = e.data;
+        console.log(data);
+        try {
+            if (data.startsWith('liverUsers')) {
+                //取下用户列表tag
+                let json = data.substring(data.indexOf(":") + 1);
+                //转换json
+                let liveUsersData = JSON.parse(json);
+                console.log(liveUsersData);
+                // 展示在线用户列表
+                for (let i = 0; i < liveUsersData.length; i++) {
+                    let item = liveUsersData[i];
+                    // 不显示自己
+                    if (item.name == remoteUser) {
+                        continue;
+                    }
+                    let p = document.createElement("p");
+                    p.innerHTML = item.name;
+                    // 双击发起连接邀请
+                    p.addEventListener('dblclick',function () {
+                        let descUser = item.name;
+                        ws.send("call:"+descUser);
+                    },false)
+                    liveUsers.appendChild(p);
+                }
+            }
+
+        } catch (e) {
+
+        }
+
+
+        //当服务器发来local端的sdp时，进行操作
+        var temp = e.data.replace("setRemoteDescription1:", "")
+        if (temp != e.data) {
+            console.log(new Date().toString() + "接收到local端的sdp  :  " + e.data);
+            remoteConnection.setRemoteDescription(JSON.parse(temp));
+            remoteConnection.createAnswer().then(
+                gotDescription2,
+                onCreateSessionDescriptionError
+            );
+        }
+
+        temp = e.data.replace("addIceCandidate1:", "")
+        if (temp != e.data) {
+            console.log(new Date().toString() + "  接收到local端的ice  :  " + e.data);
+            var candidate = JSON.parse(temp)
+
+            remoteConnection.addIceCandidate(candidate)
+                .then(
+                    () => onAddIceCandidateSuccess(null),
+                    err => onAddIceCandidateError(null, err)
+                );
+            // console.log(`${getName(remoteConnection)} ICE candidate: ${event.candidate ? event.candidate.candidate : '(null)'}`);
+        }
+    };
+
+
+}
+
+
 function gotStream(stream) {
     console.log('Received local stream');
     localVideo.srcObject = stream;
     localStream = stream;
+    // 创建连接 上线
+    createConnection();
+
 }
 
 navigator.mediaDevices
@@ -112,13 +228,14 @@ String.prototype.getBytesLength = function () {
 }
 // 接收消息和文件
 var fileName = '';
+
 function onReceiveMessageCallback(event) {
     console.log(`Received Message ${event.data}`);
-    if (typeof  event.data == "string"){
+    if (typeof  event.data == "string") {
         if (!event.data.startsWith("fileName:")) {
             dataChannelReceive.value += event.data;
-        }else {
-            fileName = event.data.substring(event.data.indexOf(":")+1);
+        } else {
+            fileName = event.data.substring(event.data.indexOf(":") + 1);
         }
         receivedSize += event.data.getBytesLength();
         console.log("receivedSize  :" + receivedSize);
@@ -136,7 +253,7 @@ function onReceiveMessageCallback(event) {
     const file = fileInput.files[0];
     // 接收到远端文件
     console.log(event.data.byteLength);
-    if ( event.data.byteLength) {
+    if (event.data.byteLength) {
         const received = new Blob(receiveBuffer);
         // receiveBuffer = [];
         // 下载链接
@@ -157,7 +274,7 @@ function onReceiveMessageCallback(event) {
         }
         // closeDataChannels();
     }
-    window.setTimeout("clearProgessValue(receiveProgress)",3000);
+    window.setTimeout("clearProgessValue(receiveProgress)", 3000);
 }
 
 async function onReceiveChannelStateChange() {
@@ -211,81 +328,6 @@ function disableSendButton() {
     sendButton.disabled = true;
 }
 
-function createConnection() {
-
-    window.ws = new WebSocket("wss://" + location.host + "/MyWebsocket");
-    // + localStream
-    const audioTracks = localStream.getAudioTracks();
-    if (audioTracks.length > 0) {
-        console.log(`Using audio device: ${audioTracks[0].label}`);
-    }
-
-
-    ws.onopen = function () {
-        dataChannelSend.placeholder = '';
-
-        window.remoteConnection = remoteConnection = new RTCPeerConnection();
-        console.log('Created remote peer connection object remoteConnection');
-        // + sendChannel start
-        sendChannel = remoteConnection.createDataChannel('sendDataChannel');
-        console.log('Created send data channel');
-
-        sendChannel.binaryType = 'arraybuffer';
-        console.log('Created send data channel');
-
-        sendChannel.onopen = onSendChannelStateChange;
-        sendChannel.onclose = onSendChannelStateChange;
-        // + sendChannel end
-
-        // addIce之后才会触发，发送ICE到远端
-        remoteConnection.onicecandidate = e => {
-            console.log("remote ice");
-            onIceCandidate(remoteConnection, e);
-        };
-
-        console.log('Added local stream to remote PC ');
-        // 添加流到peer
-        localStream.getTracks().forEach(track => remoteConnection.addTrack(track, localStream));
-
-        // 先获取了远端流
-        remoteConnection.ontrack = gotRemoteStream;
-        // 再打开了数据通道
-        remoteConnection.ondatachannel = receiveChannelCallback;
-
-        startButton.disabled = true;
-        closeButton.disabled = false;
-        fileInput.disabled = false;
-
-    }
-
-    ws.onmessage = function (e) {
-        //当服务器发来local端的sdp时，进行操作
-        var temp = e.data.replace("setRemoteDescription1:", "")
-        if (temp != e.data) {
-            console.log(new Date().toString() + "接收到local端的sdp  :  " + e.data);
-            remoteConnection.setRemoteDescription(JSON.parse(temp));
-            remoteConnection.createAnswer().then(
-                gotDescription2,
-                onCreateSessionDescriptionError
-            );
-        }
-
-        temp = e.data.replace("addIceCandidate1:", "")
-        if (temp != e.data) {
-            console.log(new Date().toString() + "  接收到local端的ice  :  " + e.data);
-            var candidate = JSON.parse(temp)
-
-            remoteConnection.addIceCandidate(candidate)
-                .then(
-                    () => onAddIceCandidateSuccess(null),
-                    err => onAddIceCandidateError(null, err)
-                );
-            // console.log(`${getName(remoteConnection)} ICE candidate: ${event.candidate ? event.candidate.candidate : '(null)'}`);
-        }
-    };
-
-
-}
 
 function onSendChannelStateChange() {
     const readyState = sendChannel.readyState;
@@ -390,8 +432,8 @@ function sendDataFile() {
     let flag = true; // 标识只发送一次文件名
     reader.addEventListener('load', e => {
         // 只发送一次文件名
-        if (flag){
-            sendChannel.send("fileName:"+file.name);
+        if (flag) {
+            sendChannel.send("fileName:" + file.name);
             flag = false;
         }
         // 发送文件流

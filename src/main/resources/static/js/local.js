@@ -18,9 +18,16 @@ const sendProgress = document.querySelector('progress#sendProgress');
 const receiveProgress = document.querySelector('progress#receiveProgress');
 const statusMessage = document.querySelector('span#status');
 
+const liveUsers = document.querySelector('div#liveUsers');//用户在线列表
+
 
 let receiveBuffer = [];// 接收数据
 let receivedSize = 0;// 接收数据大小
+
+let localUser = 'localUser';// localuser
+let srcUser;// 远端用户
+
+
 
 let sendBuffer = [];
 let sendSize = 0;
@@ -73,6 +80,7 @@ remoteVideo.onresize = () => {
         startTime = null;
     }
 };
+
 // + remoteVideo end
 
 function enableStartButton() {
@@ -82,34 +90,56 @@ function enableStartButton() {
 function disableSendButton() {
     sendButton.disabled = true;
 }
+
 // 获取本机的音视频流到video标签
 function gotStream(stream) {
     console.log('Received local stream');
     localVideo.srcObject = stream;
     localStream = stream;
-}
+    // 创建连接 user上线
 
-console.log('Requesting local stream');
-navigator.mediaDevices
-    .getUserMedia({
-        audio: true,
-    })
-    .then(gotStream)
-    .catch(e => alert(`getUserMedia() error: ${e.name}`));
-/**
- * 创建连接
- */
-function createConnection() {
-    startTime = window.performance.now();
-    const audioTracks = localStream.getAudioTracks();// 获取音频轨道
-
-    if (audioTracks.length > 0) {
-        console.log(`Using audio device: ${audioTracks[0].label}`);
-    }
     // 发送socket
-    window.ws = new WebSocket("wss://" + location.host + "/MyWebsocket");
+    window.ws = new WebSocket("wss://" + location.host + "/MyWebsocket/" + localUser);
     //　socket接收消息
     ws.onmessage = function (e) {
+        let data = e.data;
+        console.log(data);
+        try {
+            if (data.startsWith('liverUsers')) {
+                //取下用户列表tag
+                let json = data.substring(data.indexOf(":") + 1);
+                //转换json
+                let liveUsersData = JSON.parse(json);
+                // console.log(liveUsersData);
+                // 展示在线用户列表
+                for (let i = 0; i < liveUsersData.length ; i++) {
+                    let item = liveUsersData[i];
+                    // 不显示自己
+                    if (item.name == localUser){
+                        continue;
+                    }
+                    let p = document.createElement("p");
+                    p.innerHTML = item.name;
+                   /* // 双击发起连接邀请
+                    p.addEventListener('dblclick',function () {
+                        let descUser = item.name;
+                        ws.send("call:"+descUser);
+                    },false)*/
+                    liveUsers.appendChild(p);
+                }
+            }
+            // 有人对我发出连接请求
+            if (data.startsWith('call')) {
+                // 取下邀请头tag,谁找我连线
+                srcUser = data.substring(data.indexOf(":") + 1);
+                // 发送sdp和ice给srcUser
+                createConnection();
+            }
+        } catch (e) {
+
+        }
+
+
         var temp = e.data.replace("setRemoteDescription2:", "");
         // 查看获取的远端sdp
         if (temp != e.data) {
@@ -129,52 +159,71 @@ function createConnection() {
                 );
         }
     };
-    ws.onopen = function () {
+}
 
-        dataChannelSend.placeholder = '';
-        const servers = null;
-        window.localConnection = localConnection = new RTCPeerConnection();
-        console.log('Created local peer connection object localConnection');
+console.log('Requesting local stream');
+navigator.mediaDevices
+    .getUserMedia({
+        audio: true,
+    })
+    .then(gotStream)
+    .catch(e => alert(`getUserMedia() error: ${e.name}`));
 
+/**
+ * 创建连接
+ */
+function createConnection() {
+    startTime = window.performance.now();
+    const audioTracks = localStream.getAudioTracks();// 获取音频轨道
 
-        sendChannel = localConnection.createDataChannel('sendDataChannel');
-        console.log('Created send data channel');
-
-        // 发送本机sdp时会发送本机的ice到远端
-        localConnection.onicecandidate = e => {
-            console.log(new Date().toString());
-            onIceCandidate(localConnection, e);
-        };
-
-
-        sendChannel.binaryType = 'arraybuffer';
-        console.log('Created send data channel');
-
-
-        sendChannel.onopen = onSendChannelStateChange;
-        sendChannel.onclose = onSendChannelStateChange;
-        // pc2.ontrack = gotRemoteStream;
-
-        localStream.getTracks().forEach(track => localConnection.addTrack(track, localStream));
-        console.log('Added local stream to pc1');
-
-        console.log("本地节点创建offer")
-        localConnection.createOffer().then(
-            gotDescription1,
-            onCreateSessionDescriptionError
-        );
-
-
-        // 先获取了远端流
-        localConnection.ontrack = gotRemoteStream;
-        // 再打开了通道
-        localConnection.ondatachannel = receiveChannelCallback;
-
-        startButton.disabled = true;
-        closeButton.disabled = false;
-
-        fileInput.disabled = false;
+    if (audioTracks.length > 0) {
+        console.log(`Using audio device: ${audioTracks[0].label}`);
     }
+
+
+    dataChannelSend.placeholder = '';
+    const servers = null;
+    window.localConnection = localConnection = new RTCPeerConnection();
+    console.log('Created local peer connection object localConnection');
+
+
+    sendChannel = localConnection.createDataChannel('sendDataChannel');
+    console.log('Created send data channel');
+
+    // 发送本机sdp时会发送本机的ice到远端
+    localConnection.onicecandidate = e => {
+        console.log(new Date().toString());
+        onIceCandidate(localConnection, e);
+    };
+
+
+    sendChannel.binaryType = 'arraybuffer';
+    console.log('Created send data channel');
+
+
+    sendChannel.onopen = onSendChannelStateChange;
+    sendChannel.onclose = onSendChannelStateChange;
+    // pc2.ontrack = gotRemoteStream;
+
+    localStream.getTracks().forEach(track => localConnection.addTrack(track, localStream));
+    console.log('Added local stream to pc1');
+
+    console.log("本地节点创建offer")
+    localConnection.createOffer().then(
+        gotDescription1,
+        onCreateSessionDescriptionError
+    );
+
+
+    // 先获取了远端流
+    localConnection.ontrack = gotRemoteStream;
+    // 再打开了通道
+    localConnection.ondatachannel = receiveChannelCallback;
+
+    startButton.disabled = true;
+    closeButton.disabled = false;
+
+    fileInput.disabled = false;
 }
 
 
@@ -216,13 +265,14 @@ String.prototype.getBytesLength = function () {
     return totalLength;
 }
 var fileName = '';
+
 function onReceiveMessageCallback(event) {
     console.log(`Received Message ${event.data}`);
-    if (typeof  event.data == "string"){
+    if (typeof  event.data == "string") {
         if (!event.data.startsWith("fileName:")) {
             dataChannelReceive.value += event.data;
-        }else {
-            fileName = event.data.substring(event.data.indexOf(":")+1);
+        } else {
+            fileName = event.data.substring(event.data.indexOf(":") + 1);
         }
         receivedSize += event.data.getBytesLength();
         console.log("receivedSize  :" + receivedSize);
@@ -240,7 +290,7 @@ function onReceiveMessageCallback(event) {
     const file = fileInput.files[0];
     // 接收到远端文件
     console.log(event.data.byteLength);
-    if ( event.data.byteLength) {
+    if (event.data.byteLength) {
         const received = new Blob(receiveBuffer);
         // receiveBuffer = [];
         // 下载链接
@@ -262,7 +312,7 @@ function onReceiveMessageCallback(event) {
         }
         // closeDataChannels();
     }
-    window.setTimeout("clearProgessValue(receiveProgress)",3000);
+    window.setTimeout("clearProgessValue(receiveProgress)", 3000);
 }
 
 async function onReceiveChannelStateChange() {
@@ -335,8 +385,8 @@ function sendDataFile() {
     let flag = true; // 标识只发送一次文件名
     reader.addEventListener('load', e => {
         // 只发送一次文件名
-        if (flag){
-            sendChannel.send("fileName:"+file.name);
+        if (flag) {
+            sendChannel.send("fileName:" + file.name);
             flag = false;
         }
         // 发送文件流
@@ -404,9 +454,9 @@ function gotDescription1(desc) {
     localConnection.setLocalDescription(desc);
     console.log(`Offer from localConnection\n${desc.sdp}`);
     if (desc != null) {
-        ws.send("setRemoteDescription1:" + JSON.stringify(desc))
+        ws.send("srcUser:"+srcUser+";setRemoteDescription1:" + JSON.stringify(desc))
     } else {
-        ws.send("setRemoteDescription1:" + JSON.stringify(null))
+        ws.send("srcUser:"+srcUser+";setRemoteDescription1:" + JSON.stringify(null))
     }
 }
 
@@ -418,9 +468,9 @@ function getName(pc) {
 function onIceCandidate(pc, event) {
 
     if (event.candidate != null) {
-        ws.send("addIceCandidate1:" + JSON.stringify(event.candidate))
+        ws.send("srcUser:"+srcUser+";addIceCandidate1:" + JSON.stringify(event.candidate))
     } else {
-        ws.send("addIceCandidate1:" + JSON.stringify(null))
+        ws.send("srcUser:"+srcUser+";addIceCandidate1:" + JSON.stringify(null))
     }
     console.log(`${getName(pc)} ICE candidate: ${event.candidate ? event.candidate.candidate : '(null)'}`);
 }
