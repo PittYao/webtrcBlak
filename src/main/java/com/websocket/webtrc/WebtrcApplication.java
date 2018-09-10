@@ -23,7 +23,6 @@ public class WebtrcApplication {
      * @return
      */
     @Bean
-
     public TomcatServletWebServerFactory tomcatServletWebServerFactory(){
 
         TomcatServletWebServerFactory tomcat =new TomcatServletWebServerFactory(){
@@ -80,6 +79,4 @@ public class WebtrcApplication {
 
         };
     }
-
-
 }
