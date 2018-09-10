@@ -1,19 +1,20 @@
 package com.websocket.webtrc.test.websocket;
 
-import com.alibaba.fastjson.JSON;
-import com.fasterxml.jackson.annotation.JsonAlias;
-import domain.User;
-import org.springframework.stereotype.Component;
+import java.io.IOException;
+
+import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import javax.websocket.*;
 import javax.websocket.server.PathParam;
 import javax.websocket.server.ServerEndpoint;
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.Calendar;
-import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CopyOnWriteArraySet;
+
+import org.springframework.stereotype.Component;
+
+import com.alibaba.fastjson.JSON;
+
+import domain.User;
 
 /**
  * 测试socket后端连接
@@ -21,6 +22,34 @@ import java.util.concurrent.CopyOnWriteArraySet;
 @ServerEndpoint(value = "/MyWebsocket/{username}")
 @Component
 public class MyWebSocket {
+
+    /**
+     * 协议头
+     */
+
+    /**
+     * 邀请连接头
+     */
+    private static final String CALL = "call:";
+
+    /**
+     * sdp 和 ice的tag头
+     */
+
+    /**
+     * 发起电话邀请头
+     */
+    private static final String SRC_USER = "srcUser:";
+
+    /**
+     * Field description
+     */
+    private static final String LOCAL_USER = "localUser:";
+
+    /**
+     * Field description
+     */
+    public static final String REMOTE_USER = "remoteUser:";
 
     /**
      * 静态变量，用来记录当前在线连接数。应该把它设计成线程安全的。
@@ -32,64 +61,73 @@ public class MyWebSocket {
      */
     private static CopyOnWriteArraySet<MyWebSocket> webSocketSet = new CopyOnWriteArraySet<MyWebSocket>();
 
-
-    /**
-     * 与某个客户端的连接会话，需要通过它来给客户端发送数据
-     */
-    private Session session;
-    /**
-     * 当前访问服务的用户
-     */
-    private String currentUser;
-
     /**
      * 在线用户
      */
     private static CopyOnWriteArrayList<User> liveUsers = new CopyOnWriteArrayList<>();
 
     /**
-     * 协议头
-     * */
-    /**
-     * 邀请连接头
+     * 与某个客户端的连接会话，需要通过它来给客户端发送数据
      */
-    private String CALL = "call:";
-    /**
-     * sdp 和 ice的头
-     */
-    private String SRCUSER = "srcUser:";
-
+    private Session session;
 
     /**
-     * 连接建立成功调用的方法
-     *
-     * @param session
+     * 当前访问服务的用户
      */
-    @OnOpen
-    public void onOpen(@PathParam(value = "username") String username, Session session) {
-        System.out.println(username);
-        this.session = session;
+    private String currentUser;
 
-        // 加入在线用户列表
-        this.currentUser = username;
-        // 用户去重
-        User user = new User(username);
-        if (liveUsers.contains(user)) {
-            return;
-        }
-        liveUsers.add(user);
-        /** 加入set中*/
-        webSocketSet.add(this);
-
-        // 通知所有用户在线列表,liveUsers头部tag
-        String liveUsers = "liverUsers:";
-        send2All(liveUsers + JSON.toJSONString(liveUsers));
-
-        /** 在线数加1*/
-        addOnlineCount();
-        System.out.println("有新连接加入！当前在线人数为" + getOnlineCount());
+    /**
+     * Method description
+     */
+    public static synchronized void addOnlineCount() {
+        MyWebSocket.onlineCount++;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+
+        if ((o == null) || (getClass() != o.getClass())) {
+            return false;
+        }
+
+        MyWebSocket that = (MyWebSocket) o;
+
+        return Objects.equals(session, that.session);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(session);
+    }
+
+    /**
+     * 连接关闭调用的方法
+     */
+    @OnClose
+    public void onClose() {
+
+        /** 从set中删除 */
+        webSocketSet.remove(this);
+
+        /** 在线数减1 */
+        subOnlineCount();
+        System.out.println("有一连接关闭！当前在线人数为" + getOnlineCount());
+    }
+
+    /**
+     * Method description
+     *
+     * @param session
+     * @param error
+     */
+    @OnError
+    public void onError(Session session, Throwable error) {
+        System.out.println("发生错误");
+        error.printStackTrace();
+    }
 
     /**
      * 收到客户端消息后调用的方法
@@ -100,53 +138,88 @@ public class MyWebSocket {
     @OnMessage
     public void onMessage(String message, Session session) {
         System.out.println("来自客户端的消息:" + message);
+
         // 接收发出连接的请求
         if (message.startsWith(CALL)) {
-            //取下头tag
+
+            // 取下头tag
             String descUser = message.substring(message.indexOf(":") + 1);
-            //发送给descUser
+
+            // 发送给descUser
             send2SomeOne(CALL + currentUser, descUser);
         }
-//        ("srcUser:"+srcUser+"setRemoteDescription1:" + JSON.stringify(desc))
 
         // 接收给local->remote的sdp ice
-        if (message.startsWith(SRCUSER)) {
-            //取下头tag
-            String srcUser = message.substring(message.indexOf(":") + 1, message.indexOf(";"));
-            // 获取sdp或ice信息
-            String sdpOrIce = message.substring(message.indexOf(";"));
-            //发送给descUser
-            //TODO 未完成发送ddp和ice
-            send2SomeOne("info:" + currentUser, srcUser);
+        if (message.startsWith(SRC_USER)) {
+            sendSdpOrIce(LOCAL_USER, message);
         }
 
-        try {
-            this.sendInfo(message);
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
+        // 接收remote->local的sdp ice
+        if (message.startsWith(LOCAL_USER)) {
+            sendSdpOrIce(REMOTE_USER, message);
         }
     }
 
+    /**
+     * 连接建立成功调用的方法
+     *
+     * @param username
+     * @param session
+     */
+    @OnOpen
+    public void onOpen(@PathParam(value = "username") String username, Session session) {
+        System.out.println(username);
+        this.session = session;
+
+        // 加入在线用户列表
+        this.currentUser = username;
+
+        // 用户去重
+        User user = new User(username);
+
+        if (liveUsers.contains(user)) {
+            return;
+        }
+
+        liveUsers.add(user);
+
+        /** 加入set中 */
+        webSocketSet.add(this);
+
+        // 通知所有用户在线列表,liveUsers头部tag
+        String liveUser = "liverUsers:";
+
+        send2All(liveUser + JSON.toJSONString(liveUsers));
+        System.out.println(JSON.toJSONString(liveUsers));
+
+        /** 在线数加1 */
+        addOnlineCount();
+        System.out.println("有新连接加入！当前在线人数为" + getOnlineCount());
+    }
 
     /**
-     * 连接关闭调用的方法
+     * 广播消息
+     *
+     * @param msg
      */
-    @OnClose
-    public void onClose() {
-        /**  从set中删除*/
-        webSocketSet.remove(this);
-        /**在线数减1*/
-        subOnlineCount();
-        System.out.println("有一连接关闭！当前在线人数为" + getOnlineCount());
+    public void send2All(String msg) {
+        for (MyWebSocket item : webSocketSet) {
+            try {
+                item.sendMessage(msg);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     /**
      * 指定发送消息
+     *
+     * @param msg
+     * @param userName
      */
     public void send2SomeOne(String msg, String userName) {
-        for (MyWebSocket item :
-                webSocketSet) {
+        for (MyWebSocket item : webSocketSet) {
             if (item.currentUser.equals(userName)) {
                 try {
                     item.sendMessage(msg);
@@ -158,21 +231,7 @@ public class MyWebSocket {
     }
 
     /**
-     * 广播消息
-     */
-    public void send2All(String msg) {
-        for (MyWebSocket item :
-                webSocketSet) {
-            try {
-                item.sendMessage(msg);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    /**
-     * 群发自定义消息,除了自己
+     * 广播消息,除了自己
      *
      * @param message
      * @throws IOException
@@ -202,45 +261,22 @@ public class MyWebSocket {
     }
 
     /**
-     * Method description
-     */
-    public static synchronized void addOnlineCount() {
-        MyWebSocket.onlineCount++;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-
-        if ((o == null) || (getClass() != o.getClass())) {
-            return false;
-        }
-
-        MyWebSocket that = (MyWebSocket) o;
-
-        return Objects.equals(session, that.session);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(session);
-    }
-
-
-    /**
-     * Method description
+     * 接收sdp ice并表示是谁的sdp和ice
      *
-     * @param session
-     * @param error
+     * @param answerUser 谁把sdp发送过去
+     * @param message    sdp或ice
      */
-    @OnError
-    public void onError(Session session, Throwable error) {
-        System.out.println("发生错误");
-        error.printStackTrace();
-    }
+    public void sendSdpOrIce(String answerUser, String message) {
 
+        // 取下头tag,发送给谁
+        String sendToUser = message.substring(message.indexOf(":") + 1, message.indexOf(";"));
+
+        // 获取sdp或ice信息
+        String sdpOrIce = message.substring(message.indexOf(";") + 1);
+
+        // 发送给descUser
+        send2SomeOne(answerUser + currentUser + ";" + sdpOrIce, sendToUser);
+    }
 
     /**
      * Method description
@@ -260,4 +296,3 @@ public class MyWebSocket {
 }
 
 
-//~ Formatted by Jindent --- http://www.jindent.com

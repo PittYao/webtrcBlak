@@ -26,6 +26,7 @@ let sendBuffer = [];
 let sendSize = 0;
 
 let remoteUser = 'remoteUser';
+let localUser ;
 
 let bytesPrev = 0;
 let timestampPrev = 0;
@@ -118,41 +119,46 @@ function createConnection() {
                     let p = document.createElement("p");
                     p.innerHTML = item.name;
                     // 双击发起连接邀请
-                    p.addEventListener('dblclick',function () {
+                    p.addEventListener('dblclick', function () {
                         let descUser = item.name;
-                        ws.send("call:"+descUser);
-                    },false)
+                        ws.send("call:" + descUser); // local
+                    }, false)
                     liveUsers.appendChild(p);
                 }
             }
+            // "localUser:" + currentUser + ";" + sdpOrIce
+            // 接收local传过来的sdp和ice
+            if (data.startsWith('localUser')) {
+                // 取下头部
+                localUser = data.substring(data.indexOf(":") + 1, data.indexOf(";"));// local
+                // 取下sdp或ice
+                let sdpOrIce = data.substring(data.indexOf(";") + 1);
+                // 对sdp和ice后续操作
+                //当服务器发来local端的sdp时，进行操作
+                let temp = sdpOrIce.replace("setRemoteDescription1:", "")
+                if (temp != sdpOrIce) {
+                    console.log(new Date().toString() + "接收到local端的sdp  :  " + sdpOrIce);
+                    remoteConnection.setRemoteDescription(JSON.parse(temp));
+                    remoteConnection.createAnswer().then(
+                        gotDescription2,
+                        onCreateSessionDescriptionError
+                    );
+                }
 
+                temp = sdpOrIce.replace("addIceCandidate1:", "")
+                if (temp != sdpOrIce) {
+                    console.log(new Date().toString() + "  接收到local端的ice  :  " + sdpOrIce);
+                    let candidate = JSON.parse(temp)
+
+                    remoteConnection.addIceCandidate(candidate)
+                        .then(
+                            () => onAddIceCandidateSuccess(null),
+                            err => onAddIceCandidateError(null, err)
+                        );
+                }
+            }
         } catch (e) {
-
-        }
-
-
-        //当服务器发来local端的sdp时，进行操作
-        var temp = e.data.replace("setRemoteDescription1:", "")
-        if (temp != e.data) {
-            console.log(new Date().toString() + "接收到local端的sdp  :  " + e.data);
-            remoteConnection.setRemoteDescription(JSON.parse(temp));
-            remoteConnection.createAnswer().then(
-                gotDescription2,
-                onCreateSessionDescriptionError
-            );
-        }
-
-        temp = e.data.replace("addIceCandidate1:", "")
-        if (temp != e.data) {
-            console.log(new Date().toString() + "  接收到local端的ice  :  " + e.data);
-            var candidate = JSON.parse(temp)
-
-            remoteConnection.addIceCandidate(candidate)
-                .then(
-                    () => onAddIceCandidateSuccess(null),
-                    err => onAddIceCandidateError(null, err)
-                );
-            // console.log(`${getName(remoteConnection)} ICE candidate: ${event.candidate ? event.candidate.candidate : '(null)'}`);
+            console.log("接收数据错误: " + e.data);
         }
     };
 
@@ -227,7 +233,7 @@ String.prototype.getBytesLength = function () {
     return totalLength;
 }
 // 接收消息和文件
-var fileName = '';
+let fileName = '';
 
 function onReceiveMessageCallback(event) {
     console.log(`Received Message ${event.data}`);
@@ -475,7 +481,8 @@ function receiveChannelCallback(event) {
 function gotDescription2(desc) {
     remoteConnection.setLocalDescription(desc);
     console.log(`Answer from remoteConnection\n${desc.sdp}`);
-    ws.send("setRemoteDescription2:" + JSON.stringify(desc))
+    //localUser
+    ws.send("localUser:"+localUser+";setRemoteDescription2:" + JSON.stringify(desc))
 }
 
 function getOtherPc(pc) {
@@ -488,9 +495,9 @@ function getName(pc) {
 
 function onIceCandidate(pc, event) {
     if (event.candidate != null) {
-        ws.send("addIceCandidate2:" + JSON.stringify(event.candidate))
+        ws.send("localUser:"+localUser+";addIceCandidate2:" + JSON.stringify(event.candidate))
     } else {
-        ws.send("addIceCandidate2:" + JSON.stringify(null))
+        ws.send("localUser:"+localUser+";addIceCandidate2:" + JSON.stringify(null))
     }
     console.log(`${getName(pc)} ICE candidate: ${event.candidate ? event.candidate.candidate : '(null)'}`);
 }

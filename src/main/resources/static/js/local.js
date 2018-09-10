@@ -26,6 +26,7 @@ let receivedSize = 0;// 接收数据大小
 
 let localUser = 'localUser';// localuser
 let srcUser;// 远端用户
+let remoteUser;// 远端用户
 
 
 
@@ -131,32 +132,42 @@ function gotStream(stream) {
             // 有人对我发出连接请求
             if (data.startsWith('call')) {
                 // 取下邀请头tag,谁找我连线
-                srcUser = data.substring(data.indexOf(":") + 1);
+                srcUser = data.substring(data.indexOf(":") + 1);// srcUser=remote
                 // 发送sdp和ice给srcUser
                 createConnection();
             }
+            // 接收remote的ice或sdp
+            // "remoteUser:" + currentUser + ";" + sdpOrIce
+            if (data.startsWith('remoteUser')) {
+                // 取下头部
+                remoteUser = data.substring(data.indexOf(":") + 1, data.indexOf(";"));// remoteUser=remote
+                // 取下sdp或ice
+                let sdpOrIce = data.substring(data.indexOf(";") + 1);
+                // 对sdp和ice后续操作
+
+                //当服务器发来local端的sdp时，进行操作
+                let temp = sdpOrIce.replace("setRemoteDescription2:", "")
+                console.log("temp:"+temp);
+                if (temp != sdpOrIce) {
+                    console.log("sdpOrIce:"+sdpOrIce);
+                    console.log(new Date().toString() + " 接收到remote端的sdp  :  " + sdpOrIce);
+                    localConnection.setRemoteDescription(JSON.parse(temp));
+                }
+
+                temp = sdpOrIce.replace("addIceCandidate2:", "")
+                if (temp != sdpOrIce) {
+                    console.log(new Date().toString() + " 接收到remote端的ice  :  " + sdpOrIce);
+                    let candidate = JSON.parse(temp)
+
+                    localConnection.addIceCandidate(candidate)
+                        .then(
+                            () => onAddIceCandidateSuccess(),
+                            err => onAddIceCandidateError(null, err)
+                        );
+                }
+            }
         } catch (e) {
 
-        }
-
-
-        var temp = e.data.replace("setRemoteDescription2:", "");
-        // 查看获取的远端sdp
-        if (temp != e.data) {
-            console.log(new Date().toString() + " 接收到remote端的sdp  :  " + e.data);
-            localConnection.setRemoteDescription(JSON.parse(temp));
-        }
-
-        temp = e.data.replace("addIceCandidate2:", "")
-        if (temp != e.data) {
-            console.log(new Date().toString() + " 接收到remote端的ice  :  " + e.data);
-            var candidate = JSON.parse(temp)
-
-            localConnection.addIceCandidate(candidate)
-                .then(
-                    () => onAddIceCandidateSuccess(),
-                    err => onAddIceCandidateError(null, err)
-                );
         }
     };
 }
@@ -453,7 +464,7 @@ function gotDescription1(desc) {
     console.log("设置本地sdp : " + desc);
     localConnection.setLocalDescription(desc);
     console.log(`Offer from localConnection\n${desc.sdp}`);
-    if (desc != null) {
+    if (desc != null) {  // remote
         ws.send("srcUser:"+srcUser+";setRemoteDescription1:" + JSON.stringify(desc))
     } else {
         ws.send("srcUser:"+srcUser+";setRemoteDescription1:" + JSON.stringify(null))
