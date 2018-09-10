@@ -19,12 +19,14 @@ const receiveProgress = document.querySelector('progress#receiveProgress');
 const statusMessage = document.querySelector('span#status');
 
 const liveUsers = document.querySelector('div#liveUsers');//用户在线列表
+const localUserP = document.querySelector('p#username');// url的本地用户
 
 
 let receiveBuffer = [];// 接收数据
 let receivedSize = 0;// 接收数据大小
 
-let localUser = 'localUser';// localuser
+// let localUser = 'localUser';// localuser
+let localUser = localUserP.innerHTML;// localuser
 let srcUser;// 远端用户
 let remoteUser;// 远端用户
 

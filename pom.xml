@@ -22,6 +22,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
+        <!-- 默认使用Thymeleaf 2.0.0.RELEASE,这里需要使用Thymeleaf 3版本-->
+        <!-- 低版本的 Thymeleaf 不能解析 HTML5 格式的 HTML 代码，而是把 HTML 当成 XML 解析 -->
+        <thymeleaf.version>3.0.9.RELEASE</thymeleaf.version>
     </properties>
 
     <dependencies>
@@ -42,6 +45,10 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+        <dependency>
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>
             <version>4.0.1</version>
@@ -58,6 +65,13 @@
             <artifactId>tomcat-embed-jasper</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- 热部署组件 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <optional>true</optional>
+            <scope>true</scope>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/com.alibaba/fastjson -->
         <dependency>
             <groupId>com.alibaba</groupId>
@@ -72,6 +86,9 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <fork>true</fork><!-- fork:如果没有该配置，这个devtools不会起作用，即应用不会restart -->
+                </configuration>
             </plugin>
         </plugins>
     </build>

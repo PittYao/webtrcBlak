@@ -68,4 +68,3 @@ public class User implements Serializable {
 }
 
 
-//~ Formatted by Jindent --- http://www.jindent.com

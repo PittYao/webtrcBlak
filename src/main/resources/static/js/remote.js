@@ -17,7 +17,7 @@ const receiveProgress = document.querySelector('progress#receiveProgress');
 const statusMessage = document.querySelector('span#status');
 
 const liveUsers = document.querySelector('div#liveUsers');//用户在线列表
-
+const remoteUserP = document.querySelector('p#username');// url的本地用户
 
 let receiveBuffer = [];
 let receivedSize = 0;
@@ -25,8 +25,10 @@ let receivedSize = 0;
 let sendBuffer = [];
 let sendSize = 0;
 
-let remoteUser = 'remoteUser';
+// let remoteUser = 'remoteUser';
+let remoteUser = remoteUserP.innerHTML;
 let localUser ;
+
 
 let bytesPrev = 0;
 let timestampPrev = 0;

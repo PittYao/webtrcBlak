@@ -3,10 +3,13 @@ spring:
     view:
       prefix: /WEB-INF/jsp/
       suffix: .jsp
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
 server:
   ssl:
-      key-store:  classpath:keystore.p12
-      key-store-password: fanyao
-      key-store-type: PKCS12
-      key-alias: tomcat
+    key-store:  classpath:keystore.p12
+    key-store-password: fanyao
+    key-store-type: PKCS12
+    key-alias: tomcat
   port: 8433

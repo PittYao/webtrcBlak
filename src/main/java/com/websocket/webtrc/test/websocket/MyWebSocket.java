@@ -1,20 +1,16 @@
 package com.websocket.webtrc.test.websocket;
 
-import java.io.IOException;
-
-import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.CopyOnWriteArraySet;
+import com.alibaba.fastjson.JSON;
+import domain.User;
+import org.springframework.stereotype.Component;
 
 import javax.websocket.*;
 import javax.websocket.server.PathParam;
 import javax.websocket.server.ServerEndpoint;
-
-import org.springframework.stereotype.Component;
-
-import com.alibaba.fastjson.JSON;
-
-import domain.User;
+import java.io.IOException;
+import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
  * 测试socket后端连接
@@ -296,3 +292,4 @@ public class MyWebSocket {
 }
 
 
+//~ Formatted by Jindent --- http://www.jindent.com
