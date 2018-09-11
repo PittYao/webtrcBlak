@@ -113,6 +113,8 @@ public class MyWebSocket {
         /* 在线数减1 */
         subOnlineCount();
         System.out.println("有一连接关闭！当前在线人数为" + getOnlineCount());
+        /* 通知其他人*/
+        send2All("closeSocket:"+this.currentUser);
     }
 
     /**
@@ -171,7 +173,7 @@ public class MyWebSocket {
         // 加入在线用户列表
         this.currentUser = username;
 
-        // 用户去重
+        // TODO 用户去重,只用name去重这里有bug，后面改
         User user = new User(username);
 
         if (liveUsers.contains(user)) {

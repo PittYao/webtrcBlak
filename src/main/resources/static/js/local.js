@@ -109,6 +109,8 @@ function gotStream(stream) {
         console.log(data);
         try {
             if (data.startsWith('liverUsers')) {
+                // 清空用户列表
+                liveUsers.innerHTML='';
                 //取下用户列表tag
                 let json = data.substring(data.indexOf(":") + 1);
                 //转换json
@@ -149,7 +151,7 @@ function gotStream(stream) {
 
                 //当服务器发来local端的sdp时，进行操作
                 let temp = sdpOrIce.replace("setRemoteDescription2:", "")
-                console.log("temp:"+temp);
+                // console.log("temp:"+temp);
                 if (temp != sdpOrIce) {
                     console.log("sdpOrIce:"+sdpOrIce);
                     console.log(new Date().toString() + " 接收到remote端的sdp  :  " + sdpOrIce);
@@ -445,13 +447,14 @@ function closeDataChannels() {
     console.log('Closing data channels');
     sendChannel.close();
     console.log('Closed data channel with label: ' + sendChannel.label);
-    // receiveChannel.close();
-    // console.log('Closed data channel with label: ' + receiveChannel.label);
+
     localConnection.close();
-    // remoteConnection.close();
     localConnection = null;
-    // remoteConnection = null;
     console.log('Closed peer connections');
+
+
+    ws.close();
+
     startButton.disabled = false;
     sendButton.disabled = true;
     closeButton.disabled = true;
@@ -516,23 +519,5 @@ function onSendChannelStateChange() {
 
         onSendChannelStateChangeFile();
 
-    } else {
-        console.log('Closing data channels');
-        sendChannel.close();
-        console.log('Closed data channel with label: ' + sendChannel.label);
-
-        localConnection.close();
-        localConnection = null;
-        console.log('Closed peer connections');
-
-        startButton.disabled = false;
-        sendButton.disabled = true;
-        closeButton.disabled = true;
-
-        dataChannelSend.value = '';
-        dataChannelSend.disabled = true;
-
-        disableSendButton();
-        enableStartButton();
     }
 }

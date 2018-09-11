@@ -27,7 +27,7 @@ let sendSize = 0;
 
 // let remoteUser = 'remoteUser';
 let remoteUser = remoteUserP.innerHTML;
-let localUser ;
+let localUser;
 
 
 let bytesPrev = 0;
@@ -47,6 +47,7 @@ closeButton.onclick = closeDataChannels;
 fileInput.disabled = true;
 
 const remoteVideo = document.getElementById('remoteVideo');
+const remoteVideoB = document.getElementById('remoteVideoB');
 // + localVideo start
 const localVideo = document.getElementById('localVideo');
 
@@ -55,56 +56,27 @@ localVideo.addEventListener('loadedmetadata', function () {
 });
 
 function createConnection() {
+    // window.ws = new WebSocket("wss://" + location.host + "/MyWebsocket/" + remoteUser);
 
+
+}
+
+
+function gotStream(stream) {
+    console.log('Received local stream');
+    localVideo.srcObject = stream;
+    localStream = stream;
+    // 创建连接 上线
+    // createConnection();
     window.ws = new WebSocket("wss://" + location.host + "/MyWebsocket/" + remoteUser);
-    // + localStream
-    const audioTracks = localStream.getAudioTracks();
-    if (audioTracks.length > 0) {
-        console.log(`Using audio device: ${audioTracks[0].label}`);
-    }
-
-
-    ws.onopen = function () {
-        dataChannelSend.placeholder = '';
-
-        window.remoteConnection = remoteConnection = new RTCPeerConnection();
-        console.log('Created remote peer connection object remoteConnection');
-        // + sendChannel start
-        sendChannel = remoteConnection.createDataChannel('sendDataChannel');
-        console.log('Created send data channel');
-
-        sendChannel.binaryType = 'arraybuffer';
-        console.log('Created send data channel');
-
-        sendChannel.onopen = onSendChannelStateChange;
-        sendChannel.onclose = onSendChannelStateChange;
-        // + sendChannel end
-
-        // addIce之后才会触发，发送ICE到远端
-        remoteConnection.onicecandidate = e => {
-            console.log("remote ice");
-            onIceCandidate(remoteConnection, e);
-        };
-
-        console.log('Added local stream to remote PC ');
-        // 添加流到peer
-        localStream.getTracks().forEach(track => remoteConnection.addTrack(track, localStream));
-
-        // 先获取了远端流
-        remoteConnection.ontrack = gotRemoteStream;
-        // 再打开了数据通道
-        remoteConnection.ondatachannel = receiveChannelCallback;
-
-        startButton.disabled = false;
-        closeButton.disabled = true;
-        fileInput.disabled = true;
-    }
 
     ws.onmessage = function (e) {
         let data = e.data;
         console.log(data);
         try {
             if (data.startsWith('liverUsers')) {
+                // 清空用户列表
+                liveUsers.innerHTML = '';
                 //取下用户列表tag
                 let json = data.substring(data.indexOf(":") + 1);
                 //转换json
@@ -121,6 +93,38 @@ function createConnection() {
                     p.innerHTML = item.name;
                     // 双击发起连接邀请
                     p.addEventListener('dblclick', function () {
+                        // TODO 双击创建本地peer
+                        // + localStream
+                        const audioTracks = localStream.getAudioTracks();
+
+                        window.remoteConnection = remoteConnection = new RTCPeerConnection();
+                        console.log('Created remote peer connection object remoteConnection');
+                        // + sendChannel start
+                        sendChannel = remoteConnection.createDataChannel('sendDataChannel');
+                        console.log('Created send data channel');
+
+                        sendChannel.binaryType = 'arraybuffer';
+                        console.log('Created send data channel');
+
+                        sendChannel.onopen = onSendChannelStateChange;
+                        sendChannel.onclose = onSendChannelStateChange;
+                        // + sendChannel end
+
+                        // addIce之后才会触发，发送ICE到远端
+                        remoteConnection.onicecandidate = e => {
+                            console.log("remote ice");
+                            onIceCandidate(remoteConnection, e);
+                        };
+
+                        console.log('Added local stream to remote PC ');
+                        // 添加流到peer
+                        localStream.getTracks().forEach(track => remoteConnection.addTrack(track, localStream));
+
+                        // 先获取了远端流
+                        remoteConnection.ontrack = gotRemoteStream;
+                        // 再打开了数据通道
+                        remoteConnection.ondatachannel = receiveChannelCallback;
+
                         let descUser = item.name;
                         ws.send("call:" + descUser); // local
                     }, false)
@@ -158,22 +162,23 @@ function createConnection() {
                         );
                 }
             }
+            // 有人关闭socket
+            if (data.startsWith('closeSocket')) {
+                // 关闭用户
+                let closeUser = data.substring(data.indexOf(":") + 1);
+                console.log("有人关闭连接:" + closeUser);
+            }
         } catch (e) {
             console.log("接收数据错误: " + e.data);
         }
     };
 
 
-}
+    dataChannelSend.placeholder = '';
 
-
-function gotStream(stream) {
-    console.log('Received local stream');
-    localVideo.srcObject = stream;
-    localStream = stream;
-    // 创建连接 上线
-    createConnection();
-
+    startButton.disabled = false;
+    closeButton.disabled = true;
+    fileInput.disabled = true;
 }
 
 navigator.mediaDevices
@@ -184,7 +189,7 @@ navigator.mediaDevices
     .catch(e => alert(`getUserMedia() error: ${e.name}`));
 // + localVideo end
 
-
+// remoteVideo
 remoteVideo.addEventListener('loadedmetadata', function () {
     console.log(`Remote video videoWidth: ${this.videoWidth}px,  videoHeight: ${this.videoHeight}px`);
 });
@@ -198,6 +203,21 @@ remoteVideo.onresize = () => {
         startTime = null;
     }
 };
+// remoteVideoB
+remoteVideoB.addEventListener('loadedmetadata', function () {
+    console.log(`Remote video videoWidth: ${this.videoWidth}px,  videoHeight: ${this.videoHeight}px`);
+});
+remoteVideoB.onresize = () => {
+    console.log(`Remote video size changed to ${remoteVideoB.videoWidth}x${remoteVideoB.videoHeight}`);
+    // We'll use the first onsize callback as an indication that video has started
+    // playing out.
+    if (startTime) {
+        const elapsedTime = window.performance.now() - startTime;
+        console.log('Setup time: ' + elapsedTime.toFixed(3) + 'ms');
+        startTime = null;
+    }
+};
+
 
 function enableStartButton() {
     startButton.disabled = false;
@@ -284,6 +304,7 @@ function onReceiveMessageCallback(event) {
     window.setTimeout("clearProgessValue(receiveProgress)", 3000);
 }
 
+// 监听连接状态
 async function onReceiveChannelStateChange() {
     const readyState = receiveChannel.readyState;
     console.log(`Receive channel state is: ${readyState}`);
@@ -325,9 +346,14 @@ async function displayStats() {
 
 
 function gotRemoteStream(e) {
-    if (remoteVideo.srcObject !== e.streams[0]) {
+    if (remoteVideo.srcObject == undefined && remoteVideo.srcObject !== e.streams[0]) {
         remoteVideo.srcObject = e.streams[0];
         console.log('pc2 received remote stream');
+    }else {
+        if (remoteVideoB.srcObject !== e.streams[0]) {
+            remoteVideoB.srcObject = e.streams[0];
+            console.log('pc2 received remote stream');
+        }
     }
 }
 
@@ -403,6 +429,7 @@ function closeDataChannels() {
     // remoteConnection.close();
     // localConnection = null;
     // remoteConnection = null;
+
     console.log('Closed peer connections');
     startButton.disabled = false;
     sendButton.disabled = true;
@@ -468,7 +495,6 @@ function receiveChannelCallback(event) {
     receiveChannel.onopen = onReceiveChannelStateChange;
     receiveChannel.onclose = onReceiveChannelStateChange;
 
-
     receivedSize = 0;
     bitrateMax = 0;
     downloadAnchor.textContent = '';
@@ -483,7 +509,7 @@ function gotDescription2(desc) {
     remoteConnection.setLocalDescription(desc);
     console.log(`Answer from remoteConnection\n${desc.sdp}`);
     //localUser
-    ws.send("localUser:"+localUser+";setRemoteDescription2:" + JSON.stringify(desc))
+    ws.send("localUser:" + localUser + ";setRemoteDescription2:" + JSON.stringify(desc))
 }
 
 function getOtherPc(pc) {
@@ -496,9 +522,9 @@ function getName(pc) {
 
 function onIceCandidate(pc, event) {
     if (event.candidate != null) {
-        ws.send("localUser:"+localUser+";addIceCandidate2:" + JSON.stringify(event.candidate))
+        ws.send("localUser:" + localUser + ";addIceCandidate2:" + JSON.stringify(event.candidate))
     } else {
-        ws.send("localUser:"+localUser+";addIceCandidate2:" + JSON.stringify(null))
+        ws.send("localUser:" + localUser + ";addIceCandidate2:" + JSON.stringify(null))
     }
     console.log(`${getName(pc)} ICE candidate: ${event.candidate ? event.candidate.candidate : '(null)'}`);
 }
