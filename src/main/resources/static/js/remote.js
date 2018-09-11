@@ -95,10 +95,9 @@ function createConnection() {
         // 再打开了数据通道
         remoteConnection.ondatachannel = receiveChannelCallback;
 
-        startButton.disabled = true;
-        closeButton.disabled = false;
-        fileInput.disabled = false;
-
+        startButton.disabled = false;
+        closeButton.disabled = true;
+        fileInput.disabled = true;
     }
 
     ws.onmessage = function (e) {
