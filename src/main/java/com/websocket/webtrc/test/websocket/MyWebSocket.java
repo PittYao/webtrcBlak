@@ -14,6 +14,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
  * 测试socket后端连接
+ * @author pitt
+ * @date 2018/09/10
  */
 @ServerEndpoint(value = "/MyWebsocket/{username}")
 @Component
@@ -24,9 +26,9 @@ public class MyWebSocket {
      */
 
     /**
-     * 邀请连接头
+     * 邀请连接tag头
      */
-    private static final String CALL = "call:";
+    public static final String CALL = "call:";
 
     /**
      * sdp 和 ice的tag头
@@ -35,12 +37,12 @@ public class MyWebSocket {
     /**
      * 发起电话邀请头
      */
-    private static final String SRC_USER = "srcUser:";
+    public static final String SRC_USER = "srcUser:";
 
     /**
      * Field description
      */
-    private static final String LOCAL_USER = "localUser:";
+    public static final String LOCAL_USER = "localUser:";
 
     /**
      * Field description
@@ -55,7 +57,7 @@ public class MyWebSocket {
     /**
      * concurrent包的线程安全Set，用来存放每个客户端对应的MyWebSocket对象。
      */
-    private static CopyOnWriteArraySet<MyWebSocket> webSocketSet = new CopyOnWriteArraySet<MyWebSocket>();
+    private static CopyOnWriteArraySet<MyWebSocket> webSocketSet = new CopyOnWriteArraySet<>();
 
     /**
      * 在线用户
@@ -105,10 +107,10 @@ public class MyWebSocket {
     @OnClose
     public void onClose() {
 
-        /** 从set中删除 */
+        /* 从set中删除 */
         webSocketSet.remove(this);
 
-        /** 在线数减1 */
+        /* 在线数减1 */
         subOnlineCount();
         System.out.println("有一连接关闭！当前在线人数为" + getOnlineCount());
     }
@@ -129,10 +131,9 @@ public class MyWebSocket {
      * 收到客户端消息后调用的方法
      *
      * @param message 客户端发送过来的消息
-     * @param session 可选的参数
      */
     @OnMessage
-    public void onMessage(String message, Session session) {
+    public void onMessage(String message,Session session) {
         System.out.println("来自客户端的消息:" + message);
 
         // 接收发出连接的请求
